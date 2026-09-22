@@ -1,0 +1,7 @@
+interface:
+  display_name: "Unit4 Råbalanse"
+  short_description: "Open the Unit4 Råbalanse report"
+  default_prompt: "Use $unit4-raabalanse-gatherer to gather Råbalanse data, asking me for the company and accounting period if I have not specified them."
+
+policy:
+  allow_implicit_invocation: true
