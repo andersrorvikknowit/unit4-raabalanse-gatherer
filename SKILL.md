@@ -86,25 +86,22 @@ link.
 
 1. Keep the report variant set to `Råbalanse`. Do not select `Trial Balance`
    or `Råbalanse (periodeslutt)`.
-2. Before ordering, open **Dine bestilte rapporter** and record the currently
-   visible Råbalanse order numbers for the active user and date, then return to
-   the verified Råbalanse page. Multiple existing rows are normal: preserve the
-   complete set of order numbers rather than assuming there is only one report.
-   This baseline is only a fallback when the success confirmation cannot be
-   read.
-3. In **Åpne parametre**, open the required **Periode** dropdown and select the
+2. In **Åpne parametre**, open the required **Periode** dropdown and select the
    exact requested `YYYYMM` option. Directly setting or typing the value may
    appear correct without committing it in Unit4. Verify the collapsed control
    visibly shows the requested period.
-4. Leave **Beløps kolonne** at `Beløp` unless the user explicitly requests a
+3. Leave **Beløps kolonne** at `Beløp` unless the user explicitly requests a
    different value.
-5. Click **Lagre** to order the report only when the user has authorized the
+4. Click **Lagre** to order the report only when the user has authorized the
    live order. Do not use **Eksport** as a substitute.
-6. Wait for the success confirmation. Record the visible order number from the
+5. Wait for the success confirmation. Record the visible order number from the
    message that says the report is available under **Dine bestilte rapporter**.
-7. Acknowledge the confirmation only as needed to continue. If the confirmation
-   or order number cannot be read, continue only with the baseline comparison
-   described below; never guess the order number.
+6. Continue only after capturing the exact order number. If the confirmation
+   does not appear, disappears before it can be read, or contains no readable
+   order number, stop and report that the report may have been ordered but
+   cannot be identified safely. Do not submit again and do not infer the order
+   from the ordered-reports table.
+7. Acknowledge the confirmation only as needed to continue.
 
 ## Wait for the Matching Ordered Report
 
@@ -118,20 +115,12 @@ link.
    from the success confirmation. Also verify **Rapportnavn** is `Råbalanse`.
    The order number is the primary identity. Use the **Ordrenummer** filter when
    helpful, but verify the resulting row after filtering.
-4. If no confirmation number was available, compare the current order-number
-   set with the full pre-submit set. Existing rows do not count as candidates.
-   Continue only when the set difference contains exactly one new row and it is
-   a Råbalanse order for the active user. Adopt that row's visible order number
-   and filename. "Exactly one" applies only to this set difference, not to the
-   total number of reports in the table. If zero or multiple new candidate rows
-   appeared, stop rather than using the newest row or guessing from a date,
-   filename, or user alone.
-5. If the matching row is not visible or its **Status** is not `Ferdig`, use
+4. If the matching row is not visible or its **Status** is not `Ferdig`, use
    the page's visible load/refresh control and check again. Wait between checks
    so Unit4 can generate the report. Do not click **Vis rapport** while the
    status is queued, running, blank, failed, or otherwise not exactly
    `Ferdig`.
-6. If Unit4 reports failure, or the order does not finish after a reasonable
+5. If Unit4 reports failure, or the order does not finish after a reasonable
    bounded wait, stop and report the order number and visible status.
 
 ## Download and Verify
