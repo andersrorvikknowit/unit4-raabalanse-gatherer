@@ -253,14 +253,18 @@ names, row numbers, or column letters.
    guessing or adding unrelated values.
 5. Preserve the signs from both reports. Do not compare absolute values or
    silently reverse a sign. Compare monetary values using decimal arithmetic,
-   rounded to two decimal places. The reconciliation passes only when:
+   rounded to two decimal places. Always calculate the signed difference and
+   classify the result explicitly. The reconciliation is **MATCH** only when:
 
    `customer detail sum - Råbalanse account 1510 = 0.00`
 
-6. If the difference is non-zero, do not report the gathering workflow as
-   successful. Report the customer-detail sum, Råbalanse value, signed
-   difference, company, period, both order numbers, and both workbook
-   filenames. Do not expose individual customer rows unless the user asks.
+6. If the difference is non-zero, classify the result as **AVVIK** and do not
+   report the gathering workflow as successful. Prominently warn the human
+   running the skill that the two reports do not reconcile and require human
+   review. Report the customer-detail sum, Råbalanse value, signed difference,
+   company, period, both order numbers, and both workbook filenames. Do not
+   expose individual customer rows unless the user asks. Never silently accept,
+   hide, round away, or merely imply a mismatch.
 7. Remove temporary extracted copies after the check when they are no longer
    needed. Keep the downloaded ZIP unchanged as the verified deliverable.
 
@@ -295,7 +299,9 @@ gathering run.
 Report the verified company and requested period plus each report's captured
 order number, final status, and Unit4 filename. Also report the verified ZIP
 filename or artifact path, the customer-detail sum, the Råbalanse account 1510
-value, the difference, and whether the reconciliation passed. If blocked,
+value, the signed difference, and the explicit reconciliation status **MATCH**
+or **AVVIK**. For **AVVIK**, lead with a clear warning that human review is
+required. If blocked,
 state whether the blocker is missing inputs, browser access, login, company
 selection, search, report ordering, report generation, download access,
 workbook identity, or reconciliation.
