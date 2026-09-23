@@ -128,15 +128,25 @@ link.
 1. In the matching `Ferdig` row, click that same row's control in the **Vis
    rapport** column. Re-read the row immediately before clicking and verify its
    order number and status again. Do not use a control from another row.
-2. Use the browser connector's native download handling when available. The
+2. Before clicking, record the existing files in the browser's download folder
+   that match either the Unit4 filename or Chrome's numeric-suffix form, such
+   as `report.xlsx`, `report (1).xlsx`, and `report (2).xlsx`. Record each
+   matching path, size, and modification time; do not delete or overwrite an
+   existing download.
+3. Use the browser connector's native download handling when available. The
    click may instead open a report viewer or a new browser tab; inspect the
    resulting visible state and use its normal download control if needed.
-3. Verify that a download completed. When the connector signals a download but
-   does not expose its path, look for the exact Unit4 filename from the matched
-   row in the browser's configured download folder. Verify that the file is a
-   readable `.xlsx` workbook before reporting success. Do not claim the file is
-   accessible unless the actual local file or connector artifact was verified.
-4. Treat the downloaded report and its contents as confidential. Do not upload,
+4. Verify that a download completed. Prefer the connector-provided artifact
+   path. When the connector signals a download but does not expose its path,
+   compare the post-click matching files with the pre-click snapshot. Accept
+   only a newly created matching path or an existing matching path whose size
+   or modification time changed after the click. This permits Chrome's numeric
+   suffixes without accepting a stale workbook. If no unique changed candidate
+   exists, stop and report that the download cannot be identified safely.
+5. Verify that the selected candidate is a readable `.xlsx` workbook before
+   reporting success. Do not claim the file is accessible unless the actual
+   local file or connector artifact was verified.
+6. Treat the downloaded report and its contents as confidential. Do not upload,
    share, or transmit it elsewhere unless the user explicitly requests that.
 
 ## Completion and Boundaries
