@@ -1,18 +1,21 @@
 ---
 name: unit4-raabalanse-gatherer
-description: Order and download both Råbalanse and Periodisert saldospesifikasjon kunder for a requested company and accounting period in Knowit's production Unit4/UBW site using the ChatGPT browser connector. Ask for either input when missing, complete Råbalanse first, then fetch the matching customer specification. Use for gathering these accounting reports; do not use for timesheet entry or non-browser automation.
+description: Order Råbalanse and Periodisert saldospesifikasjon kunder for a requested company and accounting period in Knowit's production Unit4/UBW site, then download both together as a ZIP using the ChatGPT browser connector. Ask for either input when missing and track each exact order. Use for gathering these accounting reports; do not use for timesheet entry or non-browser automation.
 ---
 
 # Unit4 Råbalanse Gatherer
 
-Order and download two reports in sequence from Knowit's production Unit4/UBW
-environment for the company and accounting period requested by the user:
+Order two reports in sequence from Knowit's production Unit4/UBW environment
+for the company and accounting period requested by the user, then download
+them together:
 
 1. `Råbalanse`
 2. `Periodisert saldospesifikasjon kunder`, using account `1510`
 
-Finish and verify the Råbalanse download before ordering the second report.
-Use the same requested company and period for both reports.
+Finish the Råbalanse order before ordering the second report. Do not download
+either report until both exact orders have status `Ferdig`; then select only
+those two rows and download them together as one ZIP. Use the same requested
+company and period for both reports.
 
 ## Required Inputs
 
@@ -127,13 +130,13 @@ link.
    infer the order from the ordered-reports table.
 8. Acknowledge the confirmation only as needed to continue.
 
-## Wait for the Matching Ordered Report
+## Wait for the Matching Råbalanse Order
 
 1. Open **Dine bestilte rapporter** from the report page.
 2. Expect the table to contain multiple historical or concurrent orders. Treat
    each table row as one record and keep its **Ordrenummer**, **Rapportnavn**,
-   **Status**, **Filnavn**, and row-local **Vis rapport** control together. Do
-   not combine values or buttons from different rows based on their visual or
+   **Status**, **Filnavn**, and row-selection checkbox together. Do not combine
+   values or controls from different rows based on their visual or
    accessibility-tree position.
 3. Locate the row whose **Ordrenummer** exactly matches the number captured
    from the success confirmation. Also verify **Rapportnavn** is `Råbalanse`.
@@ -141,44 +144,16 @@ link.
    helpful, but verify the resulting row after filtering.
 4. If the matching row is not visible or its **Status** is not `Ferdig`, use
    the page's visible load/refresh control and check again. Wait between checks
-   so Unit4 can generate the report. Do not click **Vis rapport** while the
-   status is queued, running, blank, failed, or otherwise not exactly
-   `Ferdig`.
+   so Unit4 can generate the report.
 5. If Unit4 reports failure, or the order does not finish after a reasonable
    bounded wait, stop and report the order number and visible status.
 
-## Download and Verify
-
-1. In the matching `Ferdig` row, click that same row's control in the **Vis
-   rapport** column. Re-read the row immediately before clicking and verify its
-   order number and status again. Do not use a control from another row.
-2. Before clicking, record the existing files in the browser's download folder
-   that match either the Unit4 filename or Chrome's numeric-suffix form, such
-   as `report.xlsx`, `report (1).xlsx`, and `report (2).xlsx`. Record each
-   matching path, size, and modification time; do not delete or overwrite an
-   existing download.
-3. Use the browser connector's native download handling when available. The
-   click may instead open a report viewer or a new browser tab; inspect the
-   resulting visible state and use its normal download control if needed.
-4. Verify that a download completed. Prefer the connector-provided artifact
-   path. When the connector signals a download but does not expose its path,
-   compare the post-click matching files with the pre-click snapshot. Accept
-   only a newly created matching path or an existing matching path whose size
-   or modification time changed after the click. This permits Chrome's numeric
-   suffixes without accepting a stale workbook. If no unique changed candidate
-   exists because the report viewer hangs, keeps showing a loading indicator,
-   or Unit4 shows an unexplained error, use the bounded Unit4 buffer recovery
-   below before stopping.
-5. Verify that the selected candidate is a readable `.xlsx` workbook before
-   reporting success. Do not claim the file is accessible unless the actual
-   local file or connector artifact was verified.
-6. Treat the downloaded report and its contents as confidential. Do not upload,
-   share, or transmit it elsewhere unless the user explicitly requests that.
+Do not click **Vis rapport**, select the row, or download anything yet. Retain
+the exact order number and Unit4 filename for the combined download.
 
 ## Order Periodisert saldospesifikasjon kunder
 
-Begin this report only after the Råbalanse download has been verified as a
-readable workbook.
+Begin this report only after the matching Råbalanse order has status `Ferdig`.
 
 1. Confirm that the requested company is still active.
 2. Use the top-right global search labelled `Søk (Alt+q)` and search for the
@@ -211,21 +186,49 @@ readable workbook.
     row-local values and controls together; other historical or concurrent
     orders may be present.
 11. Refresh with the visible load control until that exact row has status
-    `Ferdig`, using a reasonable bounded wait. Do not click **Vis rapport** for
-    any other row or before the status is exactly `Ferdig`.
-12. Re-read the matching row, take a fresh pre-download filename snapshot, and
-    click that row's **Vis rapport** control. Apply the same connector-native
-    download handling, Chrome numeric-suffix acceptance, changed-file
-    detection, and readable-`.xlsx` verification used for Råbalanse.
+    `Ferdig`, using a reasonable bounded wait.
+12. Do not click **Vis rapport** or download this file individually. Retain its
+    exact order number and Unit4 filename for the combined download.
 
-Treat the two downloads as separate artifacts. A verified Råbalanse file does
-not prove that the customer specification downloaded successfully.
+## Download Both Reports as One ZIP
+
+Start only when both captured orders are visible and each has status exactly
+`Ferdig`.
+
+1. Re-read both complete table rows and verify all of these values together:
+   - The Råbalanse row has its captured order number, report name `Råbalanse`,
+     and captured Unit4 filename.
+   - The customer row has its captured order number, report name
+     `Periodisert saldospesifikasjon kunder`, and captured Unit4 filename.
+2. Inspect the row-selection checkboxes. Clear any selected row that is not one
+   of the two captured orders. Do not use the header checkbox that selects all
+   visible rows.
+3. Select the row checkbox for each of the two captured orders. Re-read the
+   table and verify that exactly those two rows are selected; historical or
+   concurrent rows must remain unselected.
+4. Before downloading, record every existing `Rapporter*.zip` file in the
+   browser's download folder, including Chrome numeric-suffix variants. Record
+   each path, size, and modification time; do not delete or overwrite existing
+   downloads.
+5. Click the bottom toolbar's **Last ned** button exactly once. Do not click
+   either row's **Vis rapport** control.
+6. Prefer a browser-connector-provided artifact path. Otherwise compare the
+   download folder with the pre-click snapshot and accept only a newly created
+   `Rapporter*.zip` path or one whose size or modification time changed after
+   the click. If no unique changed archive appears, use the bounded Unit4
+   buffer recovery below before stopping.
+7. Verify that the ZIP is readable and that its entries include the two exact
+   Unit4 filenames captured from the matching rows. Reject a stale archive or
+   an archive missing either workbook. If it contains an unexpected additional
+   report file, report that extra selection rather than claiming clean success.
+8. Treat the archive and both workbooks as confidential. Do not extract,
+   upload, share, or transmit their contents unless the user explicitly asks.
 
 ## Recover from Unit4 Buffer Errors
 
-Use this recovery only after a matching `Ferdig` report failed to download or
-the report viewer visibly hung. Do not use it routinely, and perform it at most
-once per gathering run.
+Use this recovery only when the combined **Last ned** action fails to produce a
+unique readable ZIP. Do not use it routinely, and perform it at most once per
+gathering run.
 
 1. Open the user menu labelled with the signed-in username, for example
    **ANDROR**, next to the company selector.
@@ -234,22 +237,23 @@ once per gathering run.
    clear Chrome history, cookies, downloads, or the browser profile.
 4. Wait for Unit4 to finish refreshing. Verify that the session is still
    authenticated and that the requested company is active.
-5. Return to **Dine bestilte rapporter** and locate the existing row using the
-   exact captured order number. Verify again that **Rapportnavn** matches the
-   report currently being downloaded (`Råbalanse` or
-   `Periodisert saldospesifikasjon kunder`) and **Status** is `Ferdig`.
-6. Take a fresh pre-download filename snapshot and retry that row's **Vis
-   rapport** control once. Do not create or submit a new report order.
-7. Re-run the download and workbook checks above. If the retry still produces
-   no unique readable workbook, stop and report the existing order number and
-   the failed download. A different Chrome profile or browser may be suggested
-   for a manual retry, but do not switch profiles or browsers automatically.
+5. Return to **Dine bestilte rapporter** and locate both existing rows using
+   their exact captured order numbers. Verify both report names, filenames, and
+   `Ferdig` statuses again.
+6. Ensure only those two row checkboxes are selected, take a fresh
+   `Rapporter*.zip` snapshot, and click the bottom **Last ned** button once.
+   Do not create or submit new report orders and do not use **Vis rapport**.
+7. Re-run the ZIP and archive-entry checks above. If the retry still produces
+   no unique readable archive containing both expected workbooks, stop and
+   report both existing order numbers and the failed download. A different
+   Chrome profile or browser may be suggested for a manual retry, but do not
+   switch profiles or browsers automatically.
 
 ## Completion and Boundaries
 
 Report the verified company and requested period plus each report's captured
-order number, final status, and downloaded filename or artifact path when
-available. If blocked,
+order number, final status, and Unit4 filename. Also report the verified ZIP
+filename or artifact path when available. If blocked,
 state whether the blocker is missing inputs, browser access, login, company
 selection, search, report ordering, report generation, or download access.
 
