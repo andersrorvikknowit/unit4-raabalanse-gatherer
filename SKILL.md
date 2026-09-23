@@ -226,7 +226,8 @@ orders are visible and every one has status exactly `Ferdig`.
    each path, size, and modification time; do not delete or overwrite existing
    downloads.
 5. Click the bottom toolbar's **Last ned** button exactly once. Do not click
-   any row's **Vis rapport** control.
+   any row's **Vis rapport** control. This combined download produces one ZIP
+   archive, not six directly accessible Excel files.
 6. Prefer a browser-connector-provided artifact path. Otherwise compare the
    download folder with the pre-click snapshot and accept only a newly created
    `Rapporter*.zip` path or one whose size or modification time changed after
@@ -237,8 +238,10 @@ orders are visible and every one has status exactly `Ferdig`.
    an archive missing any expected workbook. If it contains an unexpected
    additional report file, report that extra selection rather than claiming
    clean success.
-8. Treat the archive and all six workbooks as confidential. Extract them only to
-   a private temporary local directory for the required reconciliation below.
+8. Unpack the downloaded ZIP into a private temporary local directory before
+   reading or comparing the Excel workbooks inside it. Do not try to open the
+   ZIP itself as a workbook, and do not assume Chrome downloaded separate Excel
+   files. Treat the archive and all six extracted workbooks as confidential.
    Do not upload, share, or transmit their contents unless the user explicitly
    asks.
 
@@ -249,7 +252,8 @@ source workbook. Use workbook-aware spreadsheet tooling and identify fields by
 their visible labels and report structure rather than assuming fixed sheet
 names, row numbers, or column letters.
 
-1. Open the six exact workbook entries from the verified ZIP. Confirm every
+1. Open the six exact workbooks from the temporary extracted directory, after
+   matching each extracted filename to its verified ZIP entry. Confirm every
    workbook's visible client/company and period match the requested inputs. For
    each periodisert workbook, also confirm that its visible account or its
    account-level detail identifies exactly the account mapped to that order. If
