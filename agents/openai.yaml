@@ -1,7 +1,7 @@
 interface:
   display_name: "Unit4 Råbalanseavstemming"
-  short_description: "Order and reconcile Unit4 balance reports"
-  default_prompt: "Use $unit4-raabalanse-gatherer to order, download, and reconcile the Unit4 balance reports for the company and accounting period I specify."
+  short_description: "Reconcile Unit4 accounts 1510 and 1560"
+  default_prompt: "Use $unit4-raabalanse-gatherer to order, download, and reconcile the Unit4 reports for accounts 1510 and 1560 for the company and accounting period I specify."
 
 policy:
   allow_implicit_invocation: true

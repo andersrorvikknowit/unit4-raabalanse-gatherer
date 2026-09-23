@@ -61,6 +61,11 @@ def periodised_grid(account, amounts, *, other_account=None, formulas=()):
     return grid(rows, formulas)
 
 
+class TextNormalizationTests(unittest.TestCase):
+    def test_transliterates_norwegian_ae_and_o(self):
+        self.assertEqual(reconcile.normalize_text("ÆØ æø"), "aeo aeo")
+
+
 class MoneyParsingTests(unittest.TestCase):
     def test_parses_norwegian_and_english_formats(self):
         cases = {
@@ -154,6 +159,43 @@ class ReconciliationTests(unittest.TestCase):
         )
         self.assertEqual(result["overall_status"], "MATCH")
         self.assertEqual([item["status"] for item in result["accounts"]], ["MATCH", "MATCH"])
+
+    def test_matches_exact_norwegian_amount_headers(self):
+        raw = grid(
+            [
+                ["Klient:", "999999 Synthetic Example AS"],
+                ["Periode:", "209912"],
+                [],
+                ["Konto", "Beløp"],
+                [1510, "100,00"],
+                [1560, "25,00"],
+            ]
+        )
+
+        def norwegian_periodised(account, amount):
+            return grid(
+                [
+                    ["Klient:", "999999 Synthetic Example AS"],
+                    ["Periode:", "209912"],
+                    ["Konto:", account],
+                    [],
+                    ["Konto", "Gjenstående beløp"],
+                    [account, amount],
+                    ["Sum:", amount],
+                ]
+            )
+
+        result = self.reconcile(
+            raw,
+            norwegian_periodised("1510", "100,00"),
+            norwegian_periodised("1560", "25,00"),
+        )
+
+        self.assertEqual(result["overall_status"], "MATCH")
+        self.assertEqual(
+            [item["status"] for item in result["accounts"]],
+            ["MATCH", "MATCH"],
+        )
 
     def test_reports_signed_deviation(self):
         result = self.reconcile(

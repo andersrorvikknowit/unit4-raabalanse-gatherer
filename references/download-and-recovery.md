@@ -40,6 +40,13 @@ before **Last ned** unless one of these paths can identify the result uniquely.
    created `Rapporter*.zip` or one whose size or modification time changed
    after the click. Wait for the download to finish before reading it. Reject
    stale or ambiguous candidates.
+7. Before local inspection, verify that the exact accepted ZIP can be opened
+   for reading. A connector-returned artifact path identifies the download but
+   does not by itself prove local filesystem access. If necessary, request
+   narrow read access to that exact ZIP. If exact-file access cannot be granted,
+   ask the user to move only that ZIP into an approved workspace path and stop
+   until it is readable; do not request broader download-folder access when the
+   exact path is already known.
 
 ## Verify and Extract
 
@@ -47,14 +54,18 @@ Load Codex workspace dependencies, use the returned bundled Python executable,
 and resolve `scripts/extract_unit4_zip.py` relative to this skill's `SKILL.md`.
 Pass every executable, script, path, and entry name as a separately shell-quoted
 data argument. Never concatenate an entry name into shell syntax or execute it
-unquoted. On POSIX hosts the helper enforces private owner/mode checks; on
-Windows it rejects reparse-point paths and relies on the current user's
-temporary-directory or approved-workspace ACL boundary.
+unquoted. For extraction, the helper enforces private owner/mode checks on
+`--output-dir` on POSIX hosts. On Windows it rejects a reparse-point
+`--output-dir` and relies on the current user's temporary-directory or
+approved-workspace ACL boundary. These output-directory guarantees do not
+apply to `--zip`; establish the ZIP through the verified download identity and
+the inspection step below.
 
 1. Run the helper's `inspect --zip <path>` command. Exit `0` with status `SAFE`
    confirms the ZIP is readable and contains exactly three regular,
-   unencrypted `.xlsx` entries within the enforced path, type, size, collision,
-   and compression limits. Exit `1` is invalid input; exit `3` is `BLOCKED`.
+   unencrypted `.xlsx` entries within the enforced entry-name, type, size,
+   collision, and compression limits. Exit `1` is invalid input; exit `3` is
+   `BLOCKED`.
    Do not improvise a less strict extractor after either failure.
 2. Match entries to the three captured orders using, in descending strength:
    - The full Unit4 filename captured from the row.

@@ -50,6 +50,14 @@ REMAINING_AMOUNT_HEADERS = {
     "gjenstaende belop",
 }
 TOTAL_LABELS = {"sum", "total", "totalt"}
+NORWEGIAN_TRANSLITERATION = str.maketrans(
+    {
+        "Æ": "AE",
+        "Ø": "O",
+        "æ": "ae",
+        "ø": "o",
+    }
+)
 
 
 class ReconciliationError(Exception):
@@ -117,7 +125,11 @@ def normalize_text(value: Any) -> str:
         return str(value).casefold()
     if isinstance(value, float) and value.is_integer():
         value = int(value)
-    text = unicodedata.normalize("NFKD", str(value))
+    # NFKD decomposes letters such as å, but not Norwegian æ or ø. Translate
+    # those explicitly so documented Unit4 headers such as "Beløp" survive
+    # the subsequent ASCII-only semantic normalization.
+    text = str(value).translate(NORWEGIAN_TRANSLITERATION)
+    text = unicodedata.normalize("NFKD", text)
     text = "".join(char for char in text if not unicodedata.combining(char))
     text = text.casefold().strip()
     text = re.sub(r"[^0-9a-z]+", " ", text)

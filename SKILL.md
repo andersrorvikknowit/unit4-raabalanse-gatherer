@@ -1,6 +1,6 @@
 ---
 name: unit4-raabalanse-gatherer
-description: Gather and reconcile Knowit Unit4 Råbalanse with validated account-specific customer balance reports for a company and YYYYMM period. Ask for missing inputs; not for timesheets or file-only analysis.
+description: Gather and reconcile Knowit Unit4 Råbalanse with Periodisert saldospesifikasjon kunder for accounts 1510 and 1560 for a company and YYYYMM period. Ask for missing inputs; not for other accounts, timesheets, or file-only analysis.
 ---
 
 # Unit4 Råbalanse Gatherer

@@ -41,13 +41,18 @@ temporary-directory or workspace ACL boundary.
    `mark-unknown --reason confirmation_missing_after_second_attempt` with that
    complete set after `--observed`; never continue ordering. Candidate numbers
    are evidence for a human handoff, never an inferred confirmation.
-6. For a recoverable non-submission interruption, call `block` with a concise
-   machine reason. On continuation, inspect with `show` and call `resume`;
-   UNKNOWN or in-flight submissions cannot resume. Never call generic `block`
-   while a submission is in flight—use `mark-unknown`.
-7. After all three records are finished, call `complete`. After the final ZIP
-   and reconciliation result has been assembled into task state, call the
-   guarded `cleanup`. Never clean up a blocked run.
+6. For a recoverable non-submission interruption while the run is `ACTIVE`,
+   call `block` with a concise machine reason. On continuation, inspect with
+   `show`. Call `resume` only when the manifest is `BLOCKED`, has no `UNKNOWN`
+   or in-flight record, and the original blocking condition has been resolved.
+   Never call generic `block` while a submission is in flight—use
+   `mark-unknown`.
+7. After all three records are finished, call `complete`. If later work is
+   interrupted and `show` reports `COMPLETE`, do not call `block` or `resume`;
+   reuse the exact finished records and continue with ZIP download and
+   reconciliation. After the final ZIP and reconciliation result has been
+   assembled into task state, call the guarded `cleanup`. Never clean up a
+   blocked ordering run.
 
 Require the helper's JSON result and expected exit code at every transition.
 On an unexpected result, stop and preserve the manifest path.

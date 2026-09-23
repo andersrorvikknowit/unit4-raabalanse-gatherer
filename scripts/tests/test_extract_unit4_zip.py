@@ -70,13 +70,13 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         output_dir.mkdir(mode=0o700)
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
         targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets, strict=True):
+        for entry, target in zip(VALID_ENTRIES, targets):
             args.extend(["--entry", entry, "--target", target])
 
         code, extracted = self._run(args)
         self.assertEqual(code, 0)
         self.assertEqual(extracted["status"], "EXTRACTED")
-        for entry, target in zip(VALID_ENTRIES, targets, strict=True):
+        for entry, target in zip(VALID_ENTRIES, targets):
             self.assertEqual((output_dir / target).read_bytes(), VALID_ENTRIES[entry])
             self.assertEqual(stat.S_IMODE((output_dir / target).stat().st_mode), 0o600)
 
@@ -201,7 +201,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
 
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
         targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets, strict=True):
+        for entry, target in zip(VALID_ENTRIES, targets):
             args.extend(["--entry", entry, "--target", target])
         code, result = self._run(args)
 
@@ -216,7 +216,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         output_dir.mkdir(mode=0o700)
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
         targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets, strict=True):
+        for entry, target in zip(VALID_ENTRIES, targets):
             args.extend(["--entry", entry, "--target", target])
 
         with mock.patch.object(extract_unit4_zip, "_is_windows", return_value=True):
@@ -224,7 +224,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(extracted["status"], "EXTRACTED")
-        for entry, target in zip(VALID_ENTRIES, targets, strict=True):
+        for entry, target in zip(VALID_ENTRIES, targets):
             self.assertEqual((output_dir / target).read_bytes(), VALID_ENTRIES[entry])
 
     def test_windows_path_refuses_existing_target_without_partial_files(self) -> None:
@@ -235,7 +235,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         existing.write_bytes(b"keep me")
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
         targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets, strict=True):
+        for entry, target in zip(VALID_ENTRIES, targets):
             args.extend(["--entry", entry, "--target", target])
 
         with mock.patch.object(extract_unit4_zip, "_is_windows", return_value=True):

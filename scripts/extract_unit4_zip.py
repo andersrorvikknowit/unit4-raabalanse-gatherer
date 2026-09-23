@@ -197,7 +197,10 @@ def _validate_mappings(
 
     normalized_targets: set[str] = set()
     mappings: list[tuple[zipfile.ZipInfo, str]] = []
-    for entry, target in zip(entries, targets, strict=True):
+    # Both collections were required to contain exactly three items above, so
+    # ordinary zip is length-safe and keeps the helper compatible with Python
+    # 3.9 (the strict keyword was added in Python 3.10).
+    for entry, target in zip(entries, targets):
         if not TARGET_RE.fullmatch(target):
             raise InputError("targets must be controlled ASCII .xlsx basenames")
         normalized = _normalized_name(target)

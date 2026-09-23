@@ -16,6 +16,7 @@ import re
 import stat
 import sys
 import tempfile
+import unicodedata
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -420,18 +421,26 @@ def _safe_order(value: Any) -> bool:
     return isinstance(value, str) and SAFE_TOKEN.fullmatch(value) is not None
 
 
+def _contains_unsafe_text_character(value: str) -> bool:
+    for character in value:
+        category = unicodedata.category(character)
+        if category.startswith("C") or category in {"Zl", "Zp"}:
+            return True
+    return False
+
+
 def _safe_filename(value: Any) -> bool:
     if not isinstance(value, str) or not value or len(value) > 255:
         return False
     if value in {".", ".."} or "/" in value or "\\" in value:
         return False
-    return not any(ord(character) < 32 or ord(character) == 127 for character in value)
+    return not _contains_unsafe_text_character(value)
 
 
 def _safe_status(value: Any) -> bool:
     if not isinstance(value, str) or not value or len(value) > 128:
         return False
-    return not any(ord(character) < 32 or ord(character) == 127 for character in value)
+    return not _contains_unsafe_text_character(value)
 
 
 def _validate_record(key: str, record: Any) -> None:

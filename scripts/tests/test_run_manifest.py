@@ -568,6 +568,63 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(changed.returncode, 3)
         self.assertEqual(self.manifest.read_bytes(), before)
 
+    def test_track_rejects_unicode_control_format_and_line_separators(self):
+        self.assertEqual(self.begin("raw_balance").returncode, 0)
+        self.assertEqual(self.confirm("raw_balance", "1001").returncode, 0)
+        before = self.manifest.read_bytes()
+
+        unsafe_characters = ("\u0085", "\u2028", "\u2029", "\u202e")
+        for character in unsafe_characters:
+            with self.subTest(field="filename", character=repr(character)):
+                result = self.run_command(
+                    "track",
+                    "--manifest",
+                    str(self.manifest),
+                    "--key",
+                    "raw_balance",
+                    "--filename",
+                    f"report{character}spoof.xlsx",
+                    "--filename-kind",
+                    "FULL",
+                )
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertEqual(json.loads(result.stdout)["error"], "invalid_filename")
+                self.assertEqual(self.manifest.read_bytes(), before)
+
+            with self.subTest(field="visible_status", character=repr(character)):
+                result = self.run_command(
+                    "track",
+                    "--manifest",
+                    str(self.manifest),
+                    "--key",
+                    "raw_balance",
+                    "--visible-status",
+                    f"Fer{character}dig",
+                )
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertEqual(
+                    json.loads(result.stdout)["error"],
+                    "invalid_visible_status",
+                )
+                self.assertEqual(self.manifest.read_bytes(), before)
+
+    def test_manifest_rejects_escaped_lone_surrogate(self):
+        self.assertEqual(self.begin("raw_balance").returncode, 0)
+        self.assertEqual(self.confirm("raw_balance", "1001").returncode, 0)
+        data = self.show()
+        record = data["records"]["raw_balance"]
+        record["state"] = "TRACKING"
+        record["filename"] = "report-\ud800.xlsx"
+        record["filename_kind"] = "FULL"
+        self.manifest.write_text(json.dumps(data), encoding="utf-8")
+        if os.name != "nt":
+            os.chmod(self.manifest, 0o600)
+
+        result = self.run_command("show", "--manifest", str(self.manifest))
+
+        self.assertEqual(result.returncode, 3, result.stdout)
+        self.assertEqual(json.loads(result.stdout)["error"], "invalid_filename")
+
     def test_resume_allows_recoverable_block_but_not_unknown(self):
         blocked = self.run_command(
             "block",
