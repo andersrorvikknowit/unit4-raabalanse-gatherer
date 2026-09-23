@@ -60,6 +60,45 @@ asked to stop before submission.
   ChatGPT desktop app, connect their browser under **Settings > Computer
   Use**, and start a chat with `@Chrome` or the Unit4 tab mentioned.
 
+## First-Run Access Preflight
+
+Run this preflight after the required company and period are known and before
+opening or operating Unit4. A standalone skill cannot force a permission
+dialog during installation, so request access at the first operation that
+actually needs it. Do not claim that installation granted browser, filesystem,
+Unit4, or accounting-data access.
+
+1. Verify that the user's regular Chrome profile or explicitly mentioned
+   Unit4 tab is available through the ChatGPT browser connector. If the host
+   presents a Computer Use or browser-control approval, request it and wait for
+   the user or configured approval reviewer. If access is unavailable without
+   a prompt, stop with the connection instructions in **Browser Requirements**.
+2. Before downloading, verify that the available download mechanism can wait
+   for a completed download and expose the resulting ZIP to the current task.
+   Before unpacking or reading workbooks, verify that the task can read that
+   exact ZIP and can write to a private temporary extraction directory.
+3. If browser control, download access, reading the exact downloaded file, or
+   creating the temporary directory crosses the active sandbox boundary,
+   trigger the platform's normal approval request for only that action and
+   path. Explain briefly why it is needed. Never ask for broad home-directory,
+   full-disk, unrestricted-browser, or permanent access when a narrower
+   one-time or task-scoped approval is sufficient.
+4. If the current host or permission profile cannot surface an approval
+   request, stop before ordering reports and state the missing capability. Ask
+   the user to enable **Ask for approval** or an equivalent interactive
+   permission profile, connect Chrome under **Settings > Computer Use**, or
+   choose the required download file explicitly, whichever matches the
+   blocker.
+5. Unit4 authentication is separate from Codex permissions. When SSO or MFA is
+   required, hand control to the user as described in **Login**; never request
+   credentials or authentication codes in chat.
+
+Perform the preflight once per task unless a permission is denied, the browser
+is restarted or disconnected, the active permission profile changes, or a
+later operation reveals a new boundary. A permission denial is not
+authorization to try another browser profile, bypass the sandbox, or broaden
+the requested access.
+
 ## Login
 
 1. Inspect the current browser tab before navigating.
