@@ -143,22 +143,81 @@ class IdentityTests(unittest.TestCase):
 
 
 class ReconciliationTests(unittest.TestCase):
-    def reconcile(self, raw, report_1510, report_1560):
+    def reconcile(
+        self,
+        raw,
+        report_1510,
+        report_1560,
+        *,
+        supplier_reports=None,
+    ):
+        raw_rows = list(raw.rows)
+        existing_accounts = {
+            str(row[0]).strip()
+            for row in raw_rows
+            if row and row[0] is not None
+        }
+        for account in reconcile.SUPPLIER_ACCOUNTS:
+            if account not in existing_accounts:
+                raw_rows.append((account, "0,00"))
+        raw = reconcile.Grid(raw.name, tuple(raw_rows), raw.formula_cells)
+        reports = {
+            "1510": (report_1510,),
+            "1560": (report_1560,),
+            **{
+                account: (periodised_grid(account, ["0,00"]),)
+                for account in reconcile.SUPPLIER_ACCOUNTS
+            },
+        }
+        if supplier_reports:
+            reports.update(
+                {account: (report,) for account, report in supplier_reports.items()}
+            )
         return reconcile.reconcile_grids(
             (raw,),
-            {"1510": (report_1510,), "1560": (report_1560,)},
+            reports,
             company="999999",
             period="209912",
         )
 
-    def test_matches_both_accounts(self):
+    def test_matches_customer_accounts_with_zero_supplier_balances(self):
         result = self.reconcile(
             raw_grid([1510, "100,00"], [1560, "25,00"]),
             periodised_grid("1510", ["40,00", "60,00"]),
             periodised_grid("1560", ["25,00"]),
         )
         self.assertEqual(result["overall_status"], "MATCH")
-        self.assertEqual([item["status"] for item in result["accounts"]], ["MATCH", "MATCH"])
+        self.assertEqual(
+            [item["status"] for item in result["accounts"]],
+            ["MATCH"] * 5,
+        )
+
+    def test_matches_supplier_accounts_from_separate_reports(self):
+        result = self.reconcile(
+            raw_grid(
+                [1510, "100,00"],
+                [1560, "25,00"],
+                [2440, "40,00"],
+                [2444, "44,00"],
+                [2460, "60,00"],
+            ),
+            periodised_grid("1510", ["100,00"]),
+            periodised_grid("1560", ["25,00"]),
+            supplier_reports={
+                "2440": periodised_grid("2440", ["10,00", "30,00"]),
+                "2444": periodised_grid("2444", ["44,00"]),
+                "2460": periodised_grid("2460", ["25,00", "35,00"]),
+            },
+        )
+        self.assertEqual(result["overall_status"], "MATCH")
+        self.assertEqual(
+            [item["account"] for item in result["accounts"]],
+            ["1510", "1560", "2440", "2444", "2460"],
+        )
+        self.assertEqual(
+            [item["status"] for item in result["accounts"]],
+            ["MATCH"] * 5,
+        )
 
     def test_matches_exact_norwegian_amount_headers(self):
         raw = grid(
@@ -194,7 +253,7 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(result["overall_status"], "MATCH")
         self.assertEqual(
             [item["status"] for item in result["accounts"]],
-            ["MATCH", "MATCH"],
+            ["MATCH"] * 5,
         )
 
     def test_reports_signed_deviation(self):
@@ -361,8 +420,17 @@ class LoaderCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
             raw_path = directory / "raw.xlsx"
-            report_1510 = directory / "1510.xlsx"
-            report_1560 = directory / "1560.xlsx"
+            values = {
+                "1510": 100,
+                "1560": 25,
+                "2440": 40,
+                "2444": 44,
+                "2460": 60,
+            }
+            report_paths = {
+                account: directory / f"{account}.xlsx"
+                for account in reconcile.SUPPORTED_ACCOUNTS
+            }
             self.write_workbook(
                 raw_path,
                 [
@@ -370,47 +438,31 @@ class LoaderCliTests(unittest.TestCase):
                     ["Period:", "209912"],
                     [],
                     ["Account", "Amount"],
-                    [1510, 100],
-                    [1560, 25],
+                    *[[int(account), amount] for account, amount in values.items()],
                 ],
             )
-            self.write_workbook(
-                report_1510,
-                [
-                    ["Client:", "999999 Synthetic Example AS"],
-                    ["Period:", "209912"],
-                    ["Konto:", "1510 - Kundefordringer"],
-                    [],
-                    ["Account", "Remaining Amount"],
-                    [1510, 40],
-                    [1510, 60],
-                    ["Total:", 100],
-                ],
-            )
-            self.write_workbook(
-                report_1560,
-                [
-                    ["Client:", "999999 Synthetic Example AS"],
-                    ["Period:", "209912"],
-                    ["Konto:", 1560],
-                    [],
-                    ["Account", "Remaining Amount"],
-                    [1560, 25],
-                    ["Total:", 25],
-                ],
-            )
+            for account, amount in values.items():
+                self.write_workbook(
+                    report_paths[account],
+                    [
+                        ["Client:", "999999 Synthetic Example AS"],
+                        ["Period:", "209912"],
+                        ["Konto:", int(account)],
+                        [],
+                        ["Account", "Remaining Amount"],
+                        [int(account), amount],
+                        ["Total:", amount],
+                    ],
+                )
             arguments = [
                 "--raw-balance",
                 str(raw_path),
-                "--periodised",
-                f"1510={report_1510}",
-                "--periodised",
-                f"1560={report_1560}",
-                "--company",
-                "999999",
-                "--period",
-                "209912",
             ]
+            for account in reconcile.SUPPORTED_ACCOUNTS:
+                arguments.extend(
+                    ["--periodised", f"{account}={report_paths[account]}"]
+                )
+            arguments.extend(["--company", "999999", "--period", "209912"])
 
             output = io.StringIO()
             with redirect_stdout(output):
@@ -437,8 +489,17 @@ class LoaderCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
             raw_path = directory / "raw.xlsx"
-            report_1510 = directory / "1510.xlsx"
-            report_1560 = directory / "1560.xlsx"
+            values = {
+                "1510": 100,
+                "1560": 25,
+                "2440": 40,
+                "2444": 44,
+                "2460": 60,
+            }
+            report_paths = {
+                account: directory / f"{account}.xlsx"
+                for account in reconcile.SUPPORTED_ACCOUNTS
+            }
             self.write_workbook(
                 raw_path,
                 [
@@ -446,40 +507,36 @@ class LoaderCliTests(unittest.TestCase):
                     ["Period:", "209912"],
                     [],
                     ["Account", "Amount"],
-                    [1510, 100],
-                    [1560, 25],
+                    *[[int(account), amount] for account, amount in values.items()],
                 ],
             )
-            self.write_workbook(
-                report_1510,
-                [
-                    ["Client:", "999999 Synthetic Example AS"],
-                    ["Period:", "209912"],
-                    ["Konto:", 1510],
-                    [],
-                    ["Account", "Remaining Amount"],
-                    [1510, 100],
-                    ["Total:", 100],
-                ],
-            )
-            report_1560.write_bytes(b"not an xlsx workbook")
+            for account, amount in values.items():
+                if account == "1560":
+                    report_paths[account].write_bytes(b"not an xlsx workbook")
+                    continue
+                self.write_workbook(
+                    report_paths[account],
+                    [
+                        ["Client:", "999999 Synthetic Example AS"],
+                        ["Period:", "209912"],
+                        ["Konto:", int(account)],
+                        [],
+                        ["Account", "Remaining Amount"],
+                        [int(account), amount],
+                        ["Total:", amount],
+                    ],
+                )
+
+            arguments = ["--raw-balance", str(raw_path)]
+            for account in reconcile.SUPPORTED_ACCOUNTS:
+                arguments.extend(
+                    ["--periodised", f"{account}={report_paths[account]}"]
+                )
+            arguments.extend(["--company", "999999", "--period", "209912"])
 
             output = io.StringIO()
             with redirect_stdout(output):
-                exit_code = reconcile.main(
-                    [
-                        "--raw-balance",
-                        str(raw_path),
-                        "--periodised",
-                        f"1510={report_1510}",
-                        "--periodised",
-                        f"1560={report_1560}",
-                        "--company",
-                        "999999",
-                        "--period",
-                        "209912",
-                    ]
-                )
+                exit_code = reconcile.main(arguments)
 
             payload = json.loads(output.getvalue())
             self.assertEqual(exit_code, 3)
@@ -488,6 +545,10 @@ class LoaderCliTests(unittest.TestCase):
             self.assertEqual(payload["accounts"][1]["status"], "BLOCKED")
             self.assertEqual(
                 payload["accounts"][1]["reason"], "workbook_could_not_be_opened"
+            )
+            self.assertEqual(
+                [item["status"] for item in payload["accounts"][2:]],
+                ["MATCH", "MATCH", "MATCH"],
             )
             self.assertNotIn("not an xlsx workbook", output.getvalue())
 

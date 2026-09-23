@@ -9,7 +9,9 @@ visual arithmetic or ad-hoc spreadsheet formulas.
 
 For each extracted workbook, verify the visible client/company and period
 match the request. Identify exactly one Råbalanse workbook and exactly one
-periodisert workbook for each account `1510` and `1560`.
+periodisert workbook for each account `1510`, `1560`, `2440`, `2444`, and
+`2460`. Require `Periodisert saldospesifikasjon kunder` for `1510` and `1560`,
+and `Periodisert saldospesifikasjon leverandør` for `2440`, `2444`, and `2460`.
 
 For an account workbook, require at least one of these identity proofs:
 
@@ -63,11 +65,12 @@ For each account independently:
 
 For each account, return the periodisert sum, Råbalanse value, signed
 difference, `MATCH`/`AVVIK`/`BLOCKED`, account-order number, and workbook
-filename. Do not expose individual customer rows unless explicitly requested.
+filename. Do not expose individual customer or supplier rows unless explicitly
+requested.
 
 The overall reconciliation is:
 
-- `MATCH` only when both accounts are `MATCH`.
+- `MATCH` only when all five accounts are `MATCH`.
 - `AVVIK` when at least one account is `AVVIK` and neither is `BLOCKED`.
 - `BLOCKED` when any account cannot be verified or calculated safely; still
   report any completed account results separately.
@@ -89,11 +92,14 @@ raw ZIP entry names or other untrusted text into a shell command:
   --raw-balance <råbalanse.xlsx> \
   --periodised 1510=<1510.xlsx> \
   --periodised 1560=<1560.xlsx> \
+  --periodised 2440=<2440.xlsx> \
+  --periodised 2444=<2444.xlsx> \
+  --periodised 2460=<2460.xlsx> \
   --company <company-code> \
   --period <YYYYMM>
 ```
 
 Interpret exit code `0` as all `MATCH`, `2` as at least one `AVVIK`, `3` as
 `BLOCKED`, and `1` as invalid invocation. Preserve the JSON output in task
-state, but do not publish customer-level detail; the validator intentionally
-returns only aggregate identity and reconciliation results.
+state, but do not publish customer- or supplier-level detail; the validator
+intentionally returns only aggregate identity and reconciliation results.

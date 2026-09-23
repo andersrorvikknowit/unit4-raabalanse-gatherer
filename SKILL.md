@@ -1,6 +1,6 @@
 ---
 name: unit4-raabalanse-gatherer
-description: Gather and reconcile Knowit Unit4 Råbalanse with Periodisert saldospesifikasjon kunder for accounts 1510 and 1560 for a company and YYYYMM period. Ask for missing inputs; not for other accounts, timesheets, or file-only analysis.
+description: Gather and reconcile Knowit Unit4 Råbalanse with customer reports for accounts 1510 and 1560 and supplier reports for accounts 2440, 2444, and 2460 for a company and YYYYMM period. Ask for missing inputs; not for other accounts, timesheets, or file-only analysis.
 ---
 
 # Unit4 Råbalanse Gatherer
@@ -15,17 +15,17 @@ For each run, order and download exactly:
 1. One `Råbalanse` report.
 2. One `Periodisert saldospesifikasjon kunder` report for account `1510`.
 3. One `Periodisert saldospesifikasjon kunder` report for account `1560`.
+4. One `Periodisert saldospesifikasjon leverandør` report for account `2440`.
+5. One `Periodisert saldospesifikasjon leverandør` report for account `2444`.
+6. One `Periodisert saldospesifikasjon leverandør` report for account `2460`.
 
-Accounts `2440`, `2444`, and `2460` are pending CFO clarification and are not
-part of the current supported workflow. Do not order them, even if they appear
-in prior conversation or browser history. If the user requests another
-account, stop and explain that the account and correct Unit4 report type must
-be confirmed and then added to the skill before a future production run. Never
-silently expand the account set or continue in the current run.
+If the user requests another account, stop and explain that the account and
+correct Unit4 report type must be confirmed and added to the skill before a
+future production run. Never silently expand the account set.
 
-Finish the Råbalanse order before creating the two account-specific orders. Do
-not download until all three exact orders have status `Ferdig`. Download the
-three reports together as one ZIP, unpack it, and reconcile both accounts.
+Finish the Råbalanse order before creating the five account-specific orders.
+Do not download until all six exact orders have status `Ferdig`. Download the
+six reports together as one ZIP, unpack it, and reconcile all five accounts.
 
 ## Required Inputs
 
@@ -40,7 +40,7 @@ from Unit4, the active browser tab, a screenshot, today's date, or a previous
 run. Never encode a test company or period as a default.
 
 A direct request to fetch, gather, order, or download the report set authorizes
-the three production report orders once both inputs are known. Do not ask for a
+the six production report orders once both inputs are known. Do not ask for a
 separate confirmation before **Lagre**. Ask before ordering only if the request
 is advisory, ambiguous about execution, or explicitly asks to stop before
 submission.
@@ -48,11 +48,11 @@ submission.
 Before the first **Lagre** action, use `scripts/run_manifest.py` as specified in
 [Unit4 ordering](references/unit4-ordering.md) to create a unique private
 `run-manifest.json`; never hand-edit it. Record its path in task state. It must
-contain only operational identity—never customer rows or amounts—and must be
-updated before and after every submission or state transition. If Codex needs
-permission to create or update that exact temporary path, request the narrow
-permission then. If the helper is unavailable or cannot persist the manifest,
-stop before the first production order.
+contain only operational identity—never customer or supplier rows or amounts—
+and must be updated before and after every submission or state transition. If
+Codex needs permission to create or update that exact temporary path, request
+the narrow permission then. If the helper is unavailable or cannot persist the
+manifest, stop before the first production order.
 
 Use the manifest as the durable run ledger and mirror its current state in the
 task. After an interruption, inspect it and reuse exact captured orders rather
@@ -97,14 +97,15 @@ codes in chat.
 ## Workflow
 
 1. Read [Unit4 ordering](references/unit4-ordering.md) completely, then use it
-   to select the company, order Råbalanse, order the two account reports, and
-   capture the exact order-to-account mapping. Do not continue unless the three
+   to select the company, order Råbalanse, order the five account reports, and
+   capture the exact order-to-account mapping. Do not continue unless the six
    exact orders are `Ferdig`.
 2. Read [ZIP download and recovery](references/download-and-recovery.md)
-   completely, then select only the three captured rows, download one verified
+   completely, then select only the six captured rows, download one verified
    ZIP, and extract it into a private temporary directory.
 3. Read [reconciliation](references/reconciliation.md) completely, then verify
-   workbook identity and reconcile accounts `1510` and `1560`.
+   workbook identity and reconcile accounts `1510`, `1560`, `2440`, `2444`,
+   and `2460`.
 
 Keep company, period, report name, account, order number, Unit4 filename, ZIP
 entry, and extracted workbook together as one identity chain. A mismatch or
@@ -114,16 +115,16 @@ ambiguity at any link is a blocker; never substitute a nearby row or file.
 
 Report two independent outcomes:
 
-- **Gathering:** `SUCCESS` only when all three exact orders finished and the
-  verified ZIP contains the three corresponding workbooks. Otherwise report
+- **Gathering:** `SUCCESS` only when all six exact orders finished and the
+  verified ZIP contains the six corresponding workbooks. Otherwise report
   `BLOCKED` with the exact stage and known order numbers.
 - **Reconciliation:** `MATCH`, `AVVIK`, or `BLOCKED`. A non-zero difference is
   `AVVIK`; it does not turn a successful gathering into a download failure.
 
 For each account, report the periodisert sum, Råbalanse value, signed
 difference, status, mapped order number, and workbook filename. Lead with a
-clear human-review warning when either account is `AVVIK`. Also report company,
+clear human-review warning when any account is `AVVIK`. Also report company,
 period, Råbalanse order and filename, and the verified ZIP path or artifact.
 
-Do not expose customer-level rows unless the user explicitly asks. Treat all
-visible, downloaded, and extracted Unit4 data as confidential.
+Do not expose customer- or supplier-level rows unless the user explicitly
+asks. Treat all visible, downloaded, and extracted Unit4 data as confidential.

@@ -24,7 +24,27 @@ VALID_ENTRIES = {
     "gl09a_123.xlsx": b"raw balance",
     "cu05_124.xlsx": b"account 1510",
     "cu05_125.xlsx": b"account 1560",
+    "supplier_126.xlsx": b"account 2440",
+    "supplier_127.xlsx": b"account 2444",
+    "supplier_128.xlsx": b"account 2460",
 }
+CONTROLLED_TARGETS = [
+    "raw-balance.xlsx",
+    "account-1510.xlsx",
+    "account-1560.xlsx",
+    "account-2440.xlsx",
+    "account-2444.xlsx",
+    "account-2460.xlsx",
+]
+
+
+def padded_entries(
+    entries: list[tuple[zipfile.ZipInfo | str, bytes]],
+) -> list[tuple[zipfile.ZipInfo | str, bytes]]:
+    padded = list(entries)
+    while len(padded) < extract_unit4_zip.EXPECTED_ENTRY_COUNT:
+        padded.append((f"filler-{len(padded)}.xlsx", b"safe"))
+    return padded
 
 
 class ExtractUnit4ZipTests(unittest.TestCase):
@@ -64,19 +84,20 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         code, inspected = self._run(["inspect", "--zip", str(archive)])
         self.assertEqual(code, 0)
         self.assertEqual(inspected["status"], "SAFE")
-        self.assertEqual(inspected["entry_count"], 3)
+        self.assertEqual(
+            inspected["entry_count"], extract_unit4_zip.EXPECTED_ENTRY_COUNT
+        )
 
         output_dir = self.root / "extracted"
         output_dir.mkdir(mode=0o700)
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
-        targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets):
+        for entry, target in zip(VALID_ENTRIES, CONTROLLED_TARGETS):
             args.extend(["--entry", entry, "--target", target])
 
         code, extracted = self._run(args)
         self.assertEqual(code, 0)
         self.assertEqual(extracted["status"], "EXTRACTED")
-        for entry, target in zip(VALID_ENTRIES, targets):
+        for entry, target in zip(VALID_ENTRIES, CONTROLLED_TARGETS):
             self.assertEqual((output_dir / target).read_bytes(), VALID_ENTRIES[entry])
             self.assertEqual(stat.S_IMODE((output_dir / target).stat().st_mode), 0o600)
 
@@ -91,9 +112,8 @@ class ExtractUnit4ZipTests(unittest.TestCase):
             with self.subTest(name=unsafe_name):
                 archive = self.root / f"unsafe-{index}.zip"
                 with zipfile.ZipFile(archive, mode="w") as zip_file:
-                    zip_file.writestr(unsafe_name, b"bad")
-                    zip_file.writestr("safe-one.xlsx", b"one")
-                    zip_file.writestr("safe-two.xlsx", b"two")
+                    for name, content in padded_entries([(unsafe_name, b"bad")]):
+                        zip_file.writestr(name, content)
                 code, result = self._run(["inspect", "--zip", str(archive)])
                 self.assertEqual(code, 3)
                 self.assertEqual(result["status"], "BLOCKED")
@@ -108,21 +128,18 @@ class ExtractUnit4ZipTests(unittest.TestCase):
 
     def test_rejects_exact_duplicate_and_case_collision(self) -> None:
         scenarios = [
-            [
+            padded_entries([
                 ("same.xlsx", b"one"),
                 ("same.xlsx", b"two"),
-                ("third.xlsx", b"three"),
-            ],
-            [
+            ]),
+            padded_entries([
                 ("Report.xlsx", b"one"),
                 ("report.XLSX", b"two"),
-                ("third.xlsx", b"three"),
-            ],
-            [
+            ]),
+            padded_entries([
                 ("caf\u00e9.xlsx", b"one"),
                 ("cafe\u0301.xlsx", b"two"),
-                ("third.xlsx", b"three"),
-            ],
+            ]),
         ]
         for index, entries in enumerate(scenarios):
             with self.subTest(index=index):
@@ -141,9 +158,10 @@ class ExtractUnit4ZipTests(unittest.TestCase):
             with self.subTest(character=repr(invalid_character)):
                 archive = self.root / f"control-{index}.zip"
                 with zipfile.ZipFile(archive, mode="w") as zip_file:
-                    zip_file.writestr(f"unsafe{invalid_character}name.xlsx", b"bad")
-                    zip_file.writestr("safe-one.xlsx", b"one")
-                    zip_file.writestr("safe-two.xlsx", b"two")
+                    for name, content in padded_entries(
+                        [(f"unsafe{invalid_character}name.xlsx", b"bad")]
+                    ):
+                        zip_file.writestr(name, content)
 
                 code, result = self._run(["inspect", "--zip", str(archive)])
                 self.assertEqual(code, 3)
@@ -151,11 +169,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
 
     def test_rejects_cli_option_like_entry_name(self) -> None:
         archive = self._write_zip(
-            {
-                "--entry.xlsx": b"bad",
-                "safe-one.xlsx": b"one",
-                "safe-two.xlsx": b"two",
-            }
+            padded_entries([("--entry.xlsx", b"bad")])
         )
 
         code, result = self._run(["inspect", "--zip", str(archive)])
@@ -167,11 +181,9 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         link.create_system = 3
         link.external_attr = (stat.S_IFLNK | 0o777) << 16
         archive = self._write_zip(
-            [
+            padded_entries([
                 (link, b"target.xlsx"),
-                ("safe-one.xlsx", b"one"),
-                ("safe-two.xlsx", b"two"),
-            ]
+            ])
         )
 
         code, result = self._run(["inspect", "--zip", str(archive)])
@@ -180,11 +192,9 @@ class ExtractUnit4ZipTests(unittest.TestCase):
 
     def test_rejects_high_compression_ratio(self) -> None:
         archive = self._write_zip(
-            {
-                "compressed.xlsx": b"0" * (11 * 1024 * 1024),
-                "safe-one.xlsx": b"one",
-                "safe-two.xlsx": b"two",
-            }
+            padded_entries(
+                [("compressed.xlsx", b"0" * (11 * 1024 * 1024))]
+            )
         )
 
         code, result = self._run(["inspect", "--zip", str(archive)])
@@ -200,8 +210,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         os.chmod(existing, 0o600)
 
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
-        targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets):
+        for entry, target in zip(VALID_ENTRIES, CONTROLLED_TARGETS):
             args.extend(["--entry", entry, "--target", target])
         code, result = self._run(args)
 
@@ -215,8 +224,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         output_dir = self.root / "windows-extracted"
         output_dir.mkdir(mode=0o700)
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
-        targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets):
+        for entry, target in zip(VALID_ENTRIES, CONTROLLED_TARGETS):
             args.extend(["--entry", entry, "--target", target])
 
         with mock.patch.object(extract_unit4_zip, "_is_windows", return_value=True):
@@ -224,7 +232,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(extracted["status"], "EXTRACTED")
-        for entry, target in zip(VALID_ENTRIES, targets):
+        for entry, target in zip(VALID_ENTRIES, CONTROLLED_TARGETS):
             self.assertEqual((output_dir / target).read_bytes(), VALID_ENTRIES[entry])
 
     def test_windows_path_refuses_existing_target_without_partial_files(self) -> None:
@@ -234,8 +242,7 @@ class ExtractUnit4ZipTests(unittest.TestCase):
         existing = output_dir / "account-1510.xlsx"
         existing.write_bytes(b"keep me")
         args = ["extract", "--zip", str(archive), "--output-dir", str(output_dir)]
-        targets = ["raw-balance.xlsx", "account-1510.xlsx", "account-1560.xlsx"]
-        for entry, target in zip(VALID_ENTRIES, targets):
+        for entry, target in zip(VALID_ENTRIES, CONTROLLED_TARGETS):
             args.extend(["--entry", entry, "--target", target])
 
         with mock.patch.object(extract_unit4_zip, "_is_windows", return_value=True):

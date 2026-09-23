@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect and safely extract the three workbooks in a Unit4 report ZIP."""
+"""Inspect and safely extract the six workbooks in a Unit4 report ZIP."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ MAX_TOTAL_SIZE = 250 * 1024 * 1024
 RATIO_CHECK_SIZE = 10 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 1000
 COPY_CHUNK_SIZE = 1024 * 1024
+EXPECTED_ENTRY_COUNT = 6
 TARGET_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.xlsx\Z", re.ASCII)
 
 
@@ -117,8 +118,10 @@ def _read_and_validate(zip_path: Path) -> tuple[zipfile.ZipFile, list[zipfile.Zi
 
     try:
         infos = archive.infolist()
-        if len(infos) != 3:
-            raise BlockedError("archive must contain exactly three entries")
+        if len(infos) != EXPECTED_ENTRY_COUNT:
+            raise BlockedError(
+                f"archive must contain exactly {EXPECTED_ENTRY_COUNT} entries"
+            )
 
         normalized_names: set[str] = set()
         total_size = 0
@@ -188,16 +191,23 @@ def _validate_output_dir(output_dir: Path) -> Path:
 def _validate_mappings(
     infos: list[zipfile.ZipInfo], entries: list[str] | None, targets: list[str] | None
 ) -> list[tuple[zipfile.ZipInfo, str]]:
-    if entries is None or targets is None or len(entries) != 3 or len(targets) != 3:
-        raise InputError("extract requires exactly three --entry and three --target values")
+    if (
+        entries is None
+        or targets is None
+        or len(entries) != EXPECTED_ENTRY_COUNT
+        or len(targets) != EXPECTED_ENTRY_COUNT
+    ):
+        raise InputError(
+            "extract requires exactly six --entry and six --target values"
+        )
 
     info_by_name = {info.filename: info for info in infos}
-    if len(set(entries)) != 3 or set(entries) != set(info_by_name):
+    if len(set(entries)) != EXPECTED_ENTRY_COUNT or set(entries) != set(info_by_name):
         raise BlockedError("entry mappings must select every archive entry exactly once")
 
     normalized_targets: set[str] = set()
     mappings: list[tuple[zipfile.ZipInfo, str]] = []
-    # Both collections were required to contain exactly three items above, so
+    # Both collections were required to contain exactly six items above, so
     # ordinary zip is length-safe and keeps the helper compatible with Python
     # 3.9 (the strict keyword was added in Python 3.10).
     for entry, target in zip(entries, targets):
@@ -284,7 +294,11 @@ def _extract_archive_windows(
                 }
             )
 
-        return {"status": "EXTRACTED", "entry_count": 3, "entries": extracted}
+        return {
+            "status": "EXTRACTED",
+            "entry_count": EXPECTED_ENTRY_COUNT,
+            "entries": extracted,
+        }
     except Exception:
         for target_path in created_targets:
             try:
@@ -344,7 +358,11 @@ def _extract_archive_posix(
                 }
             )
 
-        return {"status": "EXTRACTED", "entry_count": 3, "entries": extracted}
+        return {
+            "status": "EXTRACTED",
+            "entry_count": EXPECTED_ENTRY_COUNT,
+            "entries": extracted,
+        }
     except Exception:
         if dir_fd is not None:
             for target in created_targets:
@@ -362,7 +380,7 @@ def _extract_archive_posix(
 def _build_parser() -> JsonArgumentParser:
     parser = JsonArgumentParser(
         prog="extract_unit4_zip.py",
-        description="Inspect or safely extract a three-workbook Unit4 ZIP.",
+        description="Inspect or safely extract a six-workbook Unit4 ZIP.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Deterministically reconcile Unit4 Råbalanse and customer-balance workbooks.
+"""Reconcile Unit4 Råbalanse with customer and supplier balance workbooks.
 
 The program is intentionally read-only.  It prints a single JSON document and
-never emits customer-level rows or customer names.
+never emits customer- or supplier-level rows or names.
 """
 
 from __future__ import annotations
@@ -19,7 +19,9 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 
-SUPPORTED_ACCOUNTS = ("1510", "1560")
+CUSTOMER_ACCOUNTS = ("1510", "1560")
+SUPPLIER_ACCOUNTS = ("2440", "2444", "2460")
+SUPPORTED_ACCOUNTS = CUSTOMER_ACCOUNTS + SUPPLIER_ACCOUNTS
 CENT = Decimal("0.01")
 
 COMPANY_LABELS = {"client", "company", "selskap", "firma", "klient"}
@@ -142,8 +144,8 @@ def _cell_location(grid: Grid, row: int, column: int) -> str:
     while number:
         number, remainder = divmod(number - 1, 26)
         letters = chr(65 + remainder) + letters
-    # Do not echo arbitrary sheet names: a workbook author can put customer
-    # data there.  The coordinate is enough to diagnose a single chosen table.
+    # Do not echo arbitrary sheet names: a workbook author can put customer or
+    # supplier data there. The coordinate diagnoses a single chosen table.
     return f"cell:{letters}{row + 1}"
 
 
@@ -772,7 +774,7 @@ def _parse_periodised_arguments(values: Iterable[str]) -> dict[str, Path]:
             raise InputError("duplicate_periodised_account")
         parsed[account] = Path(raw_path).expanduser()
     if set(parsed) != set(SUPPORTED_ACCOUNTS):
-        raise InputError("both_supported_periodised_accounts_are_required")
+        raise InputError("all_supported_periodised_accounts_are_required")
     return parsed
 
 
@@ -783,7 +785,10 @@ def _build_parser() -> JsonArgumentParser:
         "--periodised",
         required=True,
         action="append",
-        help="Account and workbook path as ACCOUNT=PATH; repeat for 1510 and 1560",
+        help=(
+            "Account and workbook path as ACCOUNT=PATH; repeat for 1510, 1560, "
+            "2440, 2444, and 2460"
+        ),
     )
     parser.add_argument("--company", required=True)
     parser.add_argument("--period", required=True)

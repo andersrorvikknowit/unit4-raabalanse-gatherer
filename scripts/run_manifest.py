@@ -2,8 +2,9 @@
 """Maintain a private, resumable Unit4 report-order run manifest.
 
 The manifest deliberately contains only report-order identity and workflow
-state.  It has no fields for customer rows, names, or monetary amounts.  Every
-command emits exactly one machine-readable JSON object on stdout.
+state.  It has no fields for customer or supplier rows, names, or monetary
+amounts.  Every command emits exactly one machine-readable JSON object on
+stdout.
 """
 
 from __future__ import annotations
@@ -22,10 +23,12 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MANIFEST_NAME = "run-manifest.json"
 LOCK_NAME = ".run-manifest.lock"
-RECORD_KEYS = ("raw_balance", "1510", "1560")
+ACCOUNT_KEYS = ("1510", "1560", "2440", "2444", "2460")
+RECORD_KEYS = ("raw_balance", *ACCOUNT_KEYS)
+IDENTIFIED_STATES = {"CONFIRMED", "TRACKING", "FINISHED"}
 RECORD_STATES = {
     "PLANNED",
     "SUBMITTING",
@@ -565,15 +568,18 @@ def _validate_manifest(data: dict[str, Any]) -> None:
             raise UnsafeError("incoherent_complete_run")
 
     raw_state = data["records"]["raw_balance"]["state"]
-    account_1510_state = data["records"]["1510"]["state"]
-    account_1560_state = data["records"]["1560"]["state"]
-    if account_1510_state != "PLANNED" and raw_state != "FINISHED":
-        raise UnsafeError("account_1510_requires_finished_raw_balance")
-    if account_1560_state != "PLANNED" and (
-        raw_state != "FINISHED"
-        or account_1510_state not in {"CONFIRMED", "TRACKING", "FINISHED"}
-    ):
-        raise UnsafeError("account_1560_requires_identified_account_1510")
+    for index, account in enumerate(ACCOUNT_KEYS):
+        if data["records"][account]["state"] == "PLANNED":
+            continue
+        if raw_state != "FINISHED":
+            raise UnsafeError(
+                f"account_{account}_requires_finished_raw_balance"
+            )
+        for prior_account in ACCOUNT_KEYS[:index]:
+            if data["records"][prior_account]["state"] not in IDENTIFIED_STATES:
+                raise UnsafeError(
+                    f"account_{account}_requires_identified_account_{prior_account}"
+                )
 
 
 def _new_record() -> dict[str, Any]:
@@ -710,14 +716,15 @@ def _command_begin(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         record = data["records"][args.key]
         if record["state"] not in {"PLANNED", "RETRY_ALLOWED"}:
             raise UnsafeError("invalid_begin_transition")
-        if args.key == "1510" and data["records"]["raw_balance"]["state"] != "FINISHED":
-            raise UnsafeError("raw_balance_must_finish_first")
-        if args.key == "1560" and data["records"]["1510"]["state"] not in {
-            "CONFIRMED",
-            "TRACKING",
-            "FINISHED",
-        }:
-            raise UnsafeError("account_1510_must_be_identified_first")
+        if args.key in ACCOUNT_KEYS:
+            if data["records"]["raw_balance"]["state"] != "FINISHED":
+                raise UnsafeError("raw_balance_must_finish_first")
+            account_index = ACCOUNT_KEYS.index(args.key)
+            for prior_account in ACCOUNT_KEYS[:account_index]:
+                if data["records"][prior_account]["state"] not in IDENTIFIED_STATES:
+                    raise UnsafeError(
+                        f"account_{prior_account}_must_be_identified_first"
+                    )
         if record["attempts"] >= 2:
             raise UnsafeError("maximum_attempts_reached")
         if record["state"] == "RETRY_ALLOWED" and baseline != record["baseline_orders"]:

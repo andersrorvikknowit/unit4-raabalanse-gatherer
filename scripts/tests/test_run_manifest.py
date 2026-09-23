@@ -118,7 +118,10 @@ class RunManifestTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(os.stat(self.directory).st_mode), 0o700)
             self.assertEqual(stat.S_IMODE(os.stat(self.manifest).st_mode), 0o600)
         data = self.show()
-        self.assertEqual(set(data["records"]), {"raw_balance", "1510", "1560"})
+        self.assertEqual(
+            set(data["records"]),
+            {"raw_balance", "1510", "1560", "2440", "2444", "2460"},
+        )
         self.assertTrue(all(record["state"] == "PLANNED" for record in data["records"].values()))
 
     def test_create_defaults_to_a_private_unique_temp_directory(self):
@@ -470,8 +473,8 @@ class RunManifestTests(unittest.TestCase):
         self.finish("raw_balance", "1001")
         incomplete = self.run_command("complete", "--manifest", str(self.manifest))
         self.assertEqual(incomplete.returncode, 3)
-        self.finish("1510", "1002")
-        self.finish("1560", "1003")
+        for key, order_number in zip(run_manifest.ACCOUNT_KEYS, range(1002, 1007)):
+            self.finish(key, str(order_number))
         completed = self.run_command("complete", "--manifest", str(self.manifest))
         self.assertEqual(completed.returncode, 0, completed.stdout)
         self.assertEqual(self.show()["run_state"], "COMPLETE")
@@ -491,6 +494,18 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(self.begin("1510").returncode, 0)
         self.assertEqual(self.confirm("1510", "1002").returncode, 0)
         self.assertEqual(self.begin("1560").returncode, 0)
+        self.assertEqual(self.confirm("1560", "1003").returncode, 0)
+        for key, prior_key, order_number in (
+            ("2440", "1560", "1004"),
+            ("2444", "2440", "1005"),
+            ("2460", "2444", "1006"),
+        ):
+            self.assertIn(
+                self.show()["records"][prior_key]["state"],
+                run_manifest.IDENTIFIED_STATES,
+            )
+            self.assertEqual(self.begin(key).returncode, 0)
+            self.assertEqual(self.confirm(key, order_number).returncode, 0)
 
     def test_schema_rejects_1510_state_without_finished_raw_balance(self):
         self.finish("raw_balance", "1001")
@@ -526,6 +541,26 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(
             json.loads(result.stdout)["error"],
             "account_1560_requires_identified_account_1510",
+        )
+
+    def test_schema_rejects_supplier_state_without_identified_prior_account(self):
+        self.finish("raw_balance", "1001")
+        for key, order_number in (("1510", "1002"), ("1560", "1003")):
+            self.assertEqual(self.begin(key).returncode, 0)
+            self.assertEqual(self.confirm(key, order_number).returncode, 0)
+        self.assertEqual(self.begin("2440").returncode, 0)
+        self.assertEqual(self.confirm("2440", "1004").returncode, 0)
+        data = self.show()
+        data["records"]["1560"] = run_manifest._new_record()
+        self.manifest.write_text(json.dumps(data), encoding="utf-8")
+        if os.name != "nt":
+            os.chmod(self.manifest, 0o600)
+
+        result = self.run_command("show", "--manifest", str(self.manifest))
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(
+            json.loads(result.stdout)["error"],
+            "account_2440_requires_identified_account_1560",
         )
 
     def test_filename_kind_is_required_and_immutable(self):
@@ -689,8 +724,8 @@ class RunManifestTests(unittest.TestCase):
 
     def test_cleanup_removes_completed_manifest_and_empty_directory(self):
         self.finish("raw_balance", "1001")
-        self.finish("1510", "1002")
-        self.finish("1560", "1003")
+        for key, order_number in zip(run_manifest.ACCOUNT_KEYS, range(1002, 1007)):
+            self.finish(key, str(order_number))
         completed = self.run_command("complete", "--manifest", str(self.manifest))
         self.assertEqual(completed.returncode, 0, completed.stdout)
         cleaned = self.run_command("cleanup", "--manifest", str(self.manifest))
@@ -703,8 +738,8 @@ class RunManifestTests(unittest.TestCase):
 
     def test_cleanup_preserves_unrelated_files_and_directory(self):
         self.finish("raw_balance", "1001")
-        self.finish("1510", "1002")
-        self.finish("1560", "1003")
+        for key, order_number in zip(run_manifest.ACCOUNT_KEYS, range(1002, 1007)):
+            self.finish(key, str(order_number))
         completed = self.run_command("complete", "--manifest", str(self.manifest))
         self.assertEqual(completed.returncode, 0, completed.stdout)
         unrelated = self.directory / "keep.txt"

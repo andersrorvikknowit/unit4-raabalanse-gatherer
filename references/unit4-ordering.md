@@ -1,7 +1,8 @@
 # Unit4 Ordering
 
 Use this procedure only after the skill's required company and period are
-known. The supported account set is exactly `1510` and `1560`.
+known. The supported account set is exactly `1510`, `1560`, `2440`, `2444`,
+and `2460`.
 
 ## Durable Run Manifest
 
@@ -21,10 +22,10 @@ temporary-directory or workspace ACL boundary.
    ```
 
    Require exit `0`; store the returned manifest path in task state.
-2. Before each save click, call `begin` with key `raw_balance`, `1510`, or
-   `1560` and the complete pre-click baseline as repeated values after
-   `--baseline`. The helper enforces the fixed raw_balance → 1510 → 1560
-   sequence and at most two attempts.
+2. Before each save click, call `begin` with key `raw_balance`, `1510`, `1560`,
+   `2440`, `2444`, or `2460` and the complete pre-click baseline as repeated
+   values after `--baseline`. The helper enforces the fixed raw_balance → 1510
+   → 1560 → 2440 → 2444 → 2460 sequence and at most two attempts.
 3. After a readable success dialog, call `confirm` with the exact order number.
    A confirmation that reuses a baseline or prior run order is rejected.
 4. Record table evidence with `track`. Whenever a filename is supplied, also
@@ -47,7 +48,7 @@ temporary-directory or workspace ACL boundary.
    or in-flight record, and the original blocking condition has been resolved.
    Never call generic `block` while a submission is in flight—use
    `mark-unknown`.
-7. After all three records are finished, call `complete`. If later work is
+7. After all six records are finished, call `complete`. If later work is
    interrupted and `show` reports `COMPLETE`, do not call `block` or `resume`;
    reuse the exact finished records and continue with ZIP download and
    reconciliation. After the final ZIP and reconciliation result has been
@@ -140,17 +141,23 @@ but never use it to guess which new row belongs to an ambiguous request.
 
 ## Order the Account Reports
 
-Begin only after the exact Råbalanse row is `Ferdig`.
+Begin only after the exact Råbalanse row is `Ferdig`. Use this fixed mapping
+and order:
+
+| Accounts | Exact Unit4 report title |
+| --- | --- |
+| `1510`, `1560` | `Periodisert saldospesifikasjon kunder` |
+| `2440`, `2444`, `2460` | `Periodisert saldospesifikasjon leverandør` |
 
 1. Confirm the requested company remains active.
-2. Search globally for the exact title
-   `Periodisert saldospesifikasjon kunder`. Select only an unambiguous exact
-   match and record any visible window ID, breadcrumb, or navigation path so
-   the same identity can be reused for the second order. Verify the opened page
-   heading or window title. If multiple exact matches exist or the result
-   cannot be distinguished safely, stop and report the visible identities
-   rather than guessing.
-3. For each account in order—first `1510`, then `1560`—create a separate order:
+2. For each report title in the table, search globally for that exact title.
+   Select only an unambiguous exact match and record any visible window ID,
+   breadcrumb, or navigation path so the same identity can be reused for every
+   account mapped to it. Verify the opened page heading or window title. If
+   multiple exact matches exist or the result cannot be distinguished safely,
+   stop and report the visible identities rather than guessing.
+3. For each mapped account, in the fixed order `1510`, `1560`, `2440`, `2444`,
+   then `2460`, create a separate order:
    1. Set **Konto** using the report's lookup/ellipsis control and select the
       exact account when that control is available.
    2. If text entry is the only usable path, clear the field, type the exact
@@ -171,14 +178,14 @@ Begin only after the exact Råbalanse row is `Ferdig`.
       immediately to the current account. Do not proceed without that mapping
       and never submit the same account twice.
 4. Open **Dine bestilte rapporter**. For each captured account/order pair,
-   locate the exact order-number row and verify the report name is
-   `Periodisert saldospesifikasjon kunder`. Capture its filename using the same
-   full-name or explicitly truncated-name rule as Råbalanse.
+   locate the exact order-number row and verify its report name matches the
+   fixed mapping above. Capture its filename using the same full-name or
+   explicitly truncated-name rule as Råbalanse.
 
 ## Wait for the Exact Orders
 
 Use the visible load/refresh control and wait between checks. Continue until
-all three captured rows are `Ferdig`, Unit4 displays an explicit failure, the
+all six captured rows are `Ferdig`, Unit4 displays an explicit failure, the
 user cancels, or 15 minutes have elapsed since the first pending check. Do not
 label a still-pending order as failed at the time limit; report its exact
 status and ask whether to keep waiting.

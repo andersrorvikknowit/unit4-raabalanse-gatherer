@@ -1,7 +1,7 @@
 # ZIP Download and Recovery
 
-Use this procedure only after the exact Råbalanse, account `1510`, and account
-`1560` orders are visible with status `Ferdig`.
+Use this procedure only after the exact Råbalanse and account `1510`, `1560`,
+`2440`, `2444`, and `2460` orders are visible with status `Ferdig`.
 
 ## Just-in-Time File Access
 
@@ -19,14 +19,14 @@ before **Last ned** unless one of these paths can identify the result uniquely.
 
 ## Select and Download
 
-1. Re-read the three complete rows and verify their captured order numbers,
+1. Re-read the six complete rows and verify their captured order numbers,
    report names, statuses, and available filenames together.
 2. Clear table filters that could hide selected rows. Inspect every result page
    or use a trustworthy global selected-count indicator; selection may persist
    across filters or pagination. Clear every selection that is not one of the
-   three captured orders. Do not use the header checkbox.
-3. Select the three exact row checkboxes. Re-read every result page or the
-   global selected-count indicator and require exactly three selected rows,
+   six captured orders. Do not use the header checkbox.
+3. Select the six exact row checkboxes. Re-read every result page or the
+   global selected-count indicator and require exactly six selected rows,
    with order numbers equal to the captured set. If global selection cannot be
    proven, stop before downloading.
 4. When the browser provides a completed-download artifact, arm or start its
@@ -35,7 +35,7 @@ before **Last ned** unless one of these paths can identify the result uniquely.
    modification time. Include numeric-suffix variants; do not delete or
    overwrite anything.
 5. Click the bottom toolbar's **Last ned** exactly once. Do not use any row's
-   **Vis rapport** control. Expect one ZIP, not three separate workbooks.
+   **Vis rapport** control. Expect one ZIP, not six separate workbooks.
 6. Accept only the connector-returned artifact or, for the fallback, one newly
    created `Rapporter*.zip` or one whose size or modification time changed
    after the click. Wait for the download to finish before reading it. Reject
@@ -62,12 +62,12 @@ apply to `--zip`; establish the ZIP through the verified download identity and
 the inspection step below.
 
 1. Run the helper's `inspect --zip <path>` command. Exit `0` with status `SAFE`
-   confirms the ZIP is readable and contains exactly three regular,
+   confirms the ZIP is readable and contains exactly six regular,
    unencrypted `.xlsx` entries within the enforced entry-name, type, size,
    collision, and compression limits. Exit `1` is invalid input; exit `3` is
    `BLOCKED`.
    Do not improvise a less strict extractor after either failure.
-2. Match entries to the three captured orders using, in descending strength:
+2. Match entries to the six captured orders using, in descending strength:
    - The full Unit4 filename captured from the row.
    - The captured unique filename prefix plus order number when Unit4 truncated
      the rendered cell.
@@ -78,7 +78,7 @@ the inspection step below.
 4. Request narrow write access when required and create a new private temporary
    directory accessible only to the current user. Never treat the ZIP itself as
    an Excel workbook. Keep the original ZIP unchanged as the deliverable.
-5. Run the helper's `extract` command with the exact three entry names and
+5. Run the helper's `extract` command with the exact six entry names and
    corresponding controlled targets established by the identity mapping:
 
    ```text
@@ -86,7 +86,10 @@ the inspection step below.
      --zip <archive> --output-dir <private-directory> \
      --entry <raw-entry> --target raw-balance.xlsx \
      --entry <1510-entry> --target account-1510.xlsx \
-     --entry <1560-entry> --target account-1560.xlsx
+     --entry <1560-entry> --target account-1560.xlsx \
+     --entry <2440-entry> --target account-2440.xlsx \
+     --entry <2444-entry> --target account-2444.xlsx \
+     --entry <2460-entry> --target account-2460.xlsx
    ```
 
    Require exit `0` and status `EXTRACTED`. The helper refuses unsafe archives,
@@ -107,11 +110,11 @@ run.
 2. Select **Om Unit4 ERP**, then **Tøm bufferen**. This is Unit4's application
    buffer; do not clear Chrome history, cookies, downloads, or profiles.
 3. Wait for Unit4 to refresh. Verify authentication and the requested company.
-4. Return to **Dine bestilte rapporter** and re-identify all three rows by exact
+4. Return to **Dine bestilte rapporter** and re-identify all six rows by exact
    order number. Re-verify report names, filenames, and `Ferdig` status.
 5. Ensure only those rows are selected, prepare a fresh artifact wait or scoped
    download snapshot, and click **Last ned** once.
-6. Repeat the ZIP checks. If the retry fails, stop and report the three existing
+6. Repeat the ZIP checks. If the retry fails, stop and report the six existing
    order numbers. Suggesting a manual retry in another Chrome profile or
    browser is allowed, but never switch automatically and never create new
    report orders as part of recovery.
