@@ -1,6 +1,6 @@
 ---
 name: unit4-raabalanse-gatherer
-description: Order Råbalanse and Periodisert saldospesifikasjon kunder for a requested company and accounting period in Knowit's production Unit4/UBW site, then download both together as a ZIP using the ChatGPT browser connector. Ask for either input when missing and track each exact order. Use for gathering these accounting reports; do not use for timesheet entry or non-browser automation.
+description: Order Råbalanse and Periodisert saldospesifikasjon kunder for a requested company and accounting period in Knowit's production Unit4/UBW site, download both together as a ZIP, and reconcile account 1510 between the workbooks. Ask for either input when missing and track each exact order. Use for gathering and validating these accounting reports; do not use for timesheet entry or non-browser automation.
 ---
 
 # Unit4 Råbalanse Gatherer
@@ -15,7 +15,8 @@ them together:
 Finish the Råbalanse order before ordering the second report. Do not download
 either report until both exact orders have status `Ferdig`; then select only
 those two rows and download them together as one ZIP. Use the same requested
-company and period for both reports.
+company and period for both reports. After downloading, reconcile the customer
+detail against account `1510` in Råbalanse before reporting success.
 
 ## Required Inputs
 
@@ -221,8 +222,47 @@ Start only when both captured orders are visible and each has status exactly
    Unit4 filenames captured from the matching rows. Reject a stale archive or
    an archive missing either workbook. If it contains an unexpected additional
    report file, report that extra selection rather than claiming clean success.
-8. Treat the archive and both workbooks as confidential. Do not extract,
-   upload, share, or transmit their contents unless the user explicitly asks.
+8. Treat the archive and both workbooks as confidential. Extract them only to
+   a private temporary local directory for the required reconciliation below.
+   Do not upload, share, or transmit their contents unless the user explicitly
+   asks.
+
+## Reconcile Account 1510
+
+Perform this local read-only check after verifying the ZIP. Do not modify either
+source workbook. Use workbook-aware spreadsheet tooling and identify fields by
+their visible labels and report structure rather than assuming fixed sheet
+names, row numbers, or column letters.
+
+1. Open the two exact workbook entries from the verified ZIP. Confirm each
+   workbook's visible client/company and period match the requested inputs. If
+   either identity differs or cannot be read safely, stop and report the
+   mismatch or ambiguity.
+2. In `Periodisert saldospesifikasjon kunder`, locate the detail table by its
+   semantic headers, including **Account** and **Remaining Amount** (or their
+   clearly equivalent localized labels).
+3. Select only detail rows whose **Account** value is exactly `1510`. Exclude
+   headers, blank rows, and the displayed **Total** or other subtotal rows.
+   Sum their numeric **Remaining Amount** values independently. Also compare
+   this calculated sum with the workbook's displayed total when present; a
+   disagreement is a report-integrity failure that must be reported.
+4. In `Råbalanse`, locate the exact account row `1510` and read its numeric
+   **Beløp**/balance value for the requested period. Do not match an account
+   merely because its text contains `1510`. If more than one candidate row or
+   balance column could apply, stop and report the ambiguity rather than
+   guessing or adding unrelated values.
+5. Preserve the signs from both reports. Do not compare absolute values or
+   silently reverse a sign. Compare monetary values using decimal arithmetic,
+   rounded to two decimal places. The reconciliation passes only when:
+
+   `customer detail sum - Råbalanse account 1510 = 0.00`
+
+6. If the difference is non-zero, do not report the gathering workflow as
+   successful. Report the customer-detail sum, Råbalanse value, signed
+   difference, company, period, both order numbers, and both workbook
+   filenames. Do not expose individual customer rows unless the user asks.
+7. Remove temporary extracted copies after the check when they are no longer
+   needed. Keep the downloaded ZIP unchanged as the verified deliverable.
 
 ## Recover from Unit4 Buffer Errors
 
@@ -247,15 +287,18 @@ gathering run.
    no unique readable archive containing both expected workbooks, stop and
    report both existing order numbers and the failed download. A different
    Chrome profile or browser may be suggested for a manual retry, but do not
-   switch profiles or browsers automatically.
+   switch profiles or browsers automatically. If the retry succeeds, perform
+   the account `1510` reconciliation before reporting success.
 
 ## Completion and Boundaries
 
 Report the verified company and requested period plus each report's captured
 order number, final status, and Unit4 filename. Also report the verified ZIP
-filename or artifact path when available. If blocked,
+filename or artifact path, the customer-detail sum, the Råbalanse account 1510
+value, the difference, and whether the reconciliation passed. If blocked,
 state whether the blocker is missing inputs, browser access, login, company
-selection, search, report ordering, report generation, or download access.
+selection, search, report ordering, report generation, download access,
+workbook identity, or reconciliation.
 
-Do not extract or summarize report values unless the user asks. Treat all
-visible and downloaded Unit4 data as confidential.
+Do not report customer-level detail unless the user asks. Treat all visible,
+downloaded, and extracted Unit4 data as confidential.
