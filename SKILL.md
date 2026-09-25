@@ -94,6 +94,19 @@ When Unit4, SSO, or MFA asks for credentials or confirmation, pause for the
 user to complete it in the browser. Never request passwords or authentication
 codes in chat.
 
+## Efficient UI Operation
+
+Use Computer Use to group deterministic actions on a verified Unit4 page into
+one interaction when the tool supports it. Read the UI after each meaningful
+decision boundary rather than after every click: active company and report,
+committed account and period, the result of each **Lagre**, and exact order
+rows before download. Keep the account check especially strict: a previous
+Unit4 run showed `1510` in the form while the generated workbook included
+`1560`. Do not group a **Lagre** click with a later account submission, or
+assume that a painted account value was committed. Reuse the verified customer
+or supplier report page for its next account and use the reusable order-table
+baseline described in [Unit4 ordering](references/unit4-ordering.md).
+
 ## Workflow
 
 1. Read [Unit4 ordering](references/unit4-ordering.md) completely, then use it

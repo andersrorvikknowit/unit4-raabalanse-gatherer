@@ -23,8 +23,8 @@ temporary-directory or workspace ACL boundary.
 
    Require exit `0`; store the returned manifest path in task state.
 2. Before each save click, call `begin` with key `raw_balance`, `1510`, `1560`,
-   `2440`, `2444`, or `2460` and the complete pre-click baseline as repeated
-   values after `--baseline`. The helper enforces the fixed raw_balance → 1510
+   `2440`, `2444`, or `2460` and the complete initial or updated cached
+   baseline as repeated values after `--baseline`. The helper enforces the fixed raw_balance → 1510
    → 1560 → 2440 → 2444 → 2460 sequence and at most two attempts.
 3. After a readable success dialog, call `confirm` with the exact order number.
    A confirmation that reuses a baseline or prior run order is rejected.
@@ -58,6 +58,40 @@ temporary-directory or workspace ACL boundary.
 Require the helper's JSON result and expected exit code at every transition.
 On an unexpected result, stop and preserve the manifest path.
 
+## Reduce Browser Round Trips
+
+On a page whose identity has been verified, group predictable UI actions in a
+single Computer Use interaction when supported: open a control, make the exact
+selection, move focus away, and read the resulting state. Use the current UI
+state or accessibility data for targets. Stop the sequence and inspect again
+when a dialog, navigation, loading state, or unexpected value changes the next
+action. Do not take a separate screenshot after each routine click if one
+state read can verify the final committed inputs.
+
+Keep the same customer report page for `1510` then `1560`, and the same supplier
+report page for `2440`, `2444`, then `2460`, provided its identity and active
+company still match. Search globally only when opening a report type or
+recovering from navigation. Before every **Lagre**, verify the account and
+period together, then make the manifest `begin` transition. Handle the save,
+confirmation, and manifest `confirm` as a separate decision boundary; never
+run ahead to the next account while a submission is unresolved.
+
+### Reusable order-table baseline
+
+For the first submission in each report/current-user table scope, capture a
+complete order-number baseline across all pages (or all orders when the table
+cannot prove the report and user filters). Keep that exact scope for later
+comparisons. For each subsequent confirmed order in that scope, add its exact
+confirmation order number to the cached set. Pass this cached set as the next
+`begin --baseline` value without revisiting the table merely to rescan it.
+Start a new complete baseline when changing report type or when the table
+scope cannot be reproduced. A cached baseline may omit concurrent orders; this
+is deliberately conservative. If a save has no readable confirmation, scan
+the complete same-scope table after the click. Any order number not in the
+cached baseline is a candidate, including an unrelated concurrent order, and
+blocks retry as `UNKNOWN`. Do not treat an incomplete table view or a stale
+selection as evidence that retry is safe.
+
 ## Select the Company
 
 If the requested company is already active, leave it selected. Otherwise open
@@ -88,6 +122,8 @@ closes. Stop rather than guessing when the company is missing or ambiguous.
    order number for the same report and current user across all result pages—or
    all order numbers across all pages when the table cannot prove either field.
    Keep the same table filters and page scope for the post-click comparison.
+   For later submissions in the same scope, use the reusable baseline above
+   instead of scanning the table again before each click.
    Do not filter the baseline by accounting period or account because the
    ordered-reports table does not expose those parameters. Then click **Lagre**
    once. Do not use
@@ -171,7 +207,8 @@ and order:
       collapsed value. Leave all other fields at the report defaults unless the
       user explicitly requested otherwise.
    5. Apply the complete submission procedure from Råbalanse step 6: update the
-      durable manifest, capture the pre-click matching-order baseline, click
+      durable manifest, use the complete initial or updated cached baseline for
+      this report/current-user scope, click
       **Lagre** once, and observe all submission state. Then apply the bounded
       second-save workaround when, and only when, its evidence requirements are
       met. Capture the complete confirmation order number and map it
