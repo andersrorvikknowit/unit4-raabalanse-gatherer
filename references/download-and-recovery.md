@@ -2,6 +2,10 @@
 
 Use this procedure only after the exact Råbalanse and account `1510`, `1560`,
 `2440`, `2444`, and `2460` orders are visible with status `Ferdig`.
+If one supplier row has an `.agm` filename, verify its exact Unit4 log shows
+the requested company, period, account, and `No rows found. Report stop`.
+The product owner confirmed that such an AGM means an empty report. Do not
+infer this from the filename or `Ferdig` status alone.
 
 ## Just-in-Time File Access
 
@@ -35,7 +39,7 @@ before **Last ned** unless one of these paths can identify the result uniquely.
    modification time. Include numeric-suffix variants; do not delete or
    overwrite anything.
 5. Click the bottom toolbar's **Last ned** exactly once. Do not use any row's
-   **Vis rapport** control. Expect one ZIP, not six separate workbooks.
+   **Vis rapport** control. Expect one ZIP containing the six selected outputs.
 6. Accept only the connector-returned artifact or, for the fallback, one newly
    created `Rapporter*.zip` or one whose size or modification time changed
    after the click. Wait for the download to finish before reading it. Reject
@@ -61,11 +65,13 @@ approved-workspace ACL boundary. These output-directory guarantees do not
 apply to `--zip`; establish the ZIP through the verified download identity and
 the inspection step below.
 
-1. Run the helper's `inspect --zip <path>` command. Exit `0` with status `SAFE`
-   confirms the ZIP is readable and contains exactly six regular,
-   unencrypted `.xlsx` entries within the enforced entry-name, type, size,
-   collision, and compression limits. Exit `1` is invalid input; exit `3` is
-   `BLOCKED`.
+1. Run the helper's `inspect --zip <path>` command. For one log-verified empty
+   supplier result, add `--allow-empty-agm su05_<order>.agm` using its exact
+   Unit4 filename. Exit `0` with status `SAFE` confirms the ZIP is readable
+   and contains exactly six regular, unencrypted entries: normally six
+   `.xlsx`, or five `.xlsx` and that exact AGM. The same entry-name, type,
+   size, collision, and compression limits apply. Exit `1` is invalid input;
+   exit `3` is `BLOCKED`.
    Do not improvise a less strict extractor after either failure.
 2. Match entries to the six captured orders using, in descending strength:
    - The full Unit4 filename captured from the row.
@@ -91,6 +97,11 @@ the inspection step below.
      --entry <2444-entry> --target account-2444.xlsx \
      --entry <2460-entry> --target account-2460.xlsx
    ```
+
+   For a log-verified empty supplier result, pass the same
+   `--allow-empty-agm su05_<order>.agm` to `extract` and map that entry to
+   `account-<account>.agm` instead of `.xlsx`. Never rename AGM content to
+   `.xlsx` or create a fabricated empty workbook.
 
    Require exit `0` and status `EXTRACTED`. The helper refuses unsafe archives,
    existing targets, or incomplete mappings and removes partial outputs on

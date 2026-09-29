@@ -125,16 +125,32 @@ closes. Stop rather than guessing when the company is missing or ambiguous.
    For later submissions in the same scope, use the reusable baseline above
    instead of scanning the table again before each click.
    Do not filter the baseline by accounting period or account because the
-   ordered-reports table does not expose those parameters. Then click **Lagre**
-   once. Do not use
-   **Eksport**. Observe whether Unit4
-   enters any loading or disabled state, wait for the confirmation, and capture
-   the complete visible order number. Update the manifest immediately and
+   ordered-reports table does not expose those parameters. In this Knowit Unit4
+   environment, after verifying the enabled **Lagre** button on the report
+   form, send one native double-click interaction. In Chrome Computer Use, use
+   `await tab.click(lagreIndex, { clickCount: 2 })` with the fresh accessibility
+   index for that exact button; do not send a single click or two separate
+   click calls. On the longer customer and supplier report forms, Unit4 may
+   rebuild accessibility indices after an account or period change. If a fresh
+   index becomes stale or points to **Beløps kolonne**, inspect a fresh
+   screenshot and double-click the visible bottom-toolbar **Lagre** button by
+   coordinate. A parameter dropdown opening means the save target was missed;
+   close it and perform the no-confirmation order-table check before retrying.
+   Do not click **Dine bestilte rapporter** as a substitute. The double click
+   alone is not proof of submission. Do not use **Eksport**.
+   Observe whether Unit4 enters any loading or disabled state,
+   wait for the confirmation, and capture the complete visible order number.
+   Do not leave the form or begin another report before recording that number
+   with manifest `confirm`. A disabled **Lagre** button, a newly visible row,
+   or navigation without a readable confirmation is an unresolved submission,
+   not a successful order. Check for duplicate new rows before proceeding; if
+   submission identity is ambiguous, mark it UNKNOWN and stop. Update the
+   manifest immediately and
    acknowledge the confirmation only as needed to continue.
 
 ### Bounded second-save workaround
 
-Unit4 sometimes ignores the first **Lagre** click. If no confirmation appears,
+Unit4 sometimes ignores a **Lagre** interaction. If no confirmation appears,
 wait at least 30 seconds, then inspect **Dine bestilte rapporter** or refresh it
 once and compare candidate rows with the pre-click baseline. Any new matching
 row means the submission may have succeeded: record that candidate and stop
@@ -206,10 +222,13 @@ and order:
    4. Select the same requested **Periode** from its dropdown and re-read the
       collapsed value. Leave all other fields at the report defaults unless the
       user explicitly requested otherwise.
+      On **Periodisert saldospesifikasjon leverandører**, ignore
+      **Leverandørgruppe**: leave the default `*` untouched. If committing
+      **Konto** moves focus into that field, move focus away without editing it.
    5. Apply the complete submission procedure from Råbalanse step 6: update the
       durable manifest, use the complete initial or updated cached baseline for
-      this report/current-user scope, click
-      **Lagre** once, and observe all submission state. Then apply the bounded
+      this report/current-user scope, apply one native double-click interaction to
+      **Lagre** on the report form, and observe all submission state. Then apply the bounded
       second-save workaround when, and only when, its evidence requirements are
       met. Capture the complete confirmation order number and map it
       immediately to the current account. Do not proceed without that mapping

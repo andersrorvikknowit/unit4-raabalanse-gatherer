@@ -43,6 +43,7 @@ RAW_AMOUNT_HEADERS = {
     "belop",
     "saldo",
     "utgaende saldo",
+    "year to date",
 }
 REMAINING_AMOUNT_HEADERS = {
     "remaining amount",
@@ -280,6 +281,13 @@ def require_cents(value: Any, *, location: str | None = None) -> Decimal:
     except InvalidOperation as error:
         raise Blocked("missing_or_invalid_monetary_value", location=location) from error
     if cents != number:
+        # Excel stores numeric cells as binary floats. Accept only a residual
+        # within two ULPs of an exact-cent value; a real sub-cent value stays
+        # far outside this bound.
+        if isinstance(value, float) and math.isfinite(value):
+            tolerance = Decimal(str(2 * math.ulp(value)))
+            if abs(number - cents) <= tolerance:
+                return cents
         raise Blocked("subcent_precision_is_not_supported", location=location)
     return cents
 
@@ -415,18 +423,9 @@ def find_table(
                 for amount_column in amount_columns:
                     if account_column == amount_column:
                         continue
-                    _require_literal(
-                        grid,
-                        row_index,
-                        account_column,
-                        f"formula_in_{report_kind}_header",
-                    )
-                    _require_literal(
-                        grid,
-                        row_index,
-                        amount_column,
-                        f"formula_in_{report_kind}_header",
-                    )
+                    # Unit4 uses formulas for some display labels. Exact
+                    # cached semantic header text is sufficient here; data
+                    # and identity cells retain their stricter checks.
                     candidates.append(
                         Table(grid, row_index, account_column, amount_column)
                     )
@@ -515,12 +514,11 @@ def extract_periodised_sum(table: Table, account: str) -> tuple[Decimal, Decimal
     for row_index in range(table.header_row + 1, len(table.grid.rows)):
         if _is_total_row(table, row_index):
             raw_total = table.grid.value(row_index, table.amount_column)
-            _require_literal(
-                table.grid,
-                row_index,
-                table.amount_column,
-                "formula_in_periodised_total",
-            )
+            if table.grid.is_formula(row_index, table.amount_column) and raw_total is None:
+                raise Blocked(
+                    "formula_in_periodised_total",
+                    location=_cell_location(table.grid, row_index, table.amount_column),
+                )
             if raw_total is not None and normalize_text(raw_total):
                 totals.append(
                     require_cents(
@@ -606,11 +604,13 @@ def reconcile_grids(
     raw_filename: str = "raw.xlsx",
     periodised_filenames: dict[str, str] | None = None,
     periodised_load_errors: dict[str, ReconciliationError] | None = None,
+    empty_supplier_orders: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     filenames = periodised_filenames or {
         account: f"periodised-{account}.xlsx" for account in SUPPORTED_ACCOUNTS
     }
     load_errors = periodised_load_errors or {}
+    empty_orders = empty_supplier_orders or {}
     results: list[dict[str, Any]] = []
 
     try:
@@ -646,11 +646,39 @@ def reconcile_grids(
 
         try:
             assert raw_table is not None
-            raw_value = extract_raw_value(raw_table, account)
+            raw_row_absent = False
+            try:
+                raw_value = extract_raw_value(raw_table, account)
+            except Blocked as error:
+                if account not in empty_orders or error.reason != "raw_account_row_missing":
+                    raise
+                # User-confirmed rule: when the exact supplier order is an
+                # attested empty AGM, absence from Råbalanse means zero.
+                raw_value = Decimal("0.00")
+                raw_row_absent = True
+            if account in empty_orders:
+                periodised_sum = Decimal("0.00")
+                difference = periodised_sum - raw_value
+                result = {
+                    **base,
+                    "difference": _format_money(difference),
+                    "displayed_periodised_total": None,
+                    "empty_result_order": empty_orders[account],
+                    "raw_row_absent_treated_as_zero": raw_row_absent,
+                    "periodised_sum": "0.00",
+                    "raw_balance_value": _format_money(raw_value),
+                    "status": "MATCH" if difference == Decimal("0.00") else "AVVIK",
+                }
+                results.append(result)
+                continue
             account_grids = periodised_grids[account]
-            validate_identity(account_grids, company, period)
+            summary_grids = tuple(
+                grid for grid in account_grids if normalize_text(grid.name) == "summary"
+            )
+            report_grids = summary_grids or account_grids
+            validate_identity(report_grids, company, period)
             periodised_table = find_table(
-                account_grids,
+                report_grids,
                 REMAINING_AMOUNT_HEADERS,
                 report_kind="periodised",
             )
@@ -723,10 +751,22 @@ def load_xlsx(path: Path) -> tuple[Grid, ...]:
         for sheet_name in formula_book.sheetnames:
             formula_sheet = formula_book[sheet_name]
             value_sheet = value_book[sheet_name]
+            if formula_sheet.sheet_state != "visible":
+                continue
             max_row = formula_sheet.max_row or 0
             max_column = formula_sheet.max_column or 0
-            if max_row > 100_000 or max_column > 500 or max_row * max_column > 5_000_000:
+            if max_row > 100_000 or max_row * max_column > 5_000_000:
                 raise Blocked("workbook_dimensions_are_too_large")
+            if max_column > 500:
+                # Unit4's Summary sheet can be formatted across nearly all
+                # Excel columns while its actual values occupy a few. Reject
+                # populated cells outside the bounded reading area.
+                for tail_row in formula_sheet.iter_rows(
+                    min_row=1, max_row=max_row, min_col=501, max_col=max_column
+                ):
+                    if any(cell.value is not None for cell in tail_row):
+                        raise Blocked("workbook_has_data_beyond_column_limit")
+                max_column = 500
             rows: list[tuple[Any, ...]] = []
             formulas: set[tuple[int, int]] = set()
             formula_rows = formula_sheet.iter_rows(
@@ -778,6 +818,18 @@ def _parse_periodised_arguments(values: Iterable[str]) -> dict[str, Path]:
     return parsed
 
 
+def _parse_empty_supplier_arguments(values: Iterable[str]) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for value in values:
+        account, separator, order = value.partition("=")
+        if not separator or account not in SUPPLIER_ACCOUNTS or not re.fullmatch(r"\d+", order):
+            raise InputError("empty_supplier_must_be_supported_ACCOUNT_ORDER")
+        if account in parsed or order in parsed.values():
+            raise InputError("duplicate_empty_supplier_identity")
+        parsed[account] = order
+    return parsed
+
+
 def _build_parser() -> JsonArgumentParser:
     parser = JsonArgumentParser(description=__doc__)
     parser.add_argument("--raw-balance", required=True)
@@ -792,6 +844,12 @@ def _build_parser() -> JsonArgumentParser:
     )
     parser.add_argument("--company", required=True)
     parser.add_argument("--period", required=True)
+    parser.add_argument(
+        "--empty-supplier",
+        action="append",
+        default=[],
+        help="Attest a logged no-rows supplier result as ACCOUNT=ORDER; repeat only after checking the exact Unit4 log",
+    )
     return parser
 
 
@@ -811,12 +869,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         raw_path = Path(arguments.raw_balance).expanduser()
         periodised_paths = _parse_periodised_arguments(arguments.periodised)
+        empty_orders = _parse_empty_supplier_arguments(arguments.empty_supplier)
         raw_grids = load_xlsx(raw_path)
         periodised_grids: dict[str, tuple[Grid, ...]] = {}
         periodised_load_errors: dict[str, ReconciliationError] = {}
         for account, path in periodised_paths.items():
             try:
-                periodised_grids[account] = load_xlsx(path)
+                if account in empty_orders:
+                    if path.name != f"account-{account}.agm" or not path.is_file():
+                        raise InputError("empty_supplier_file_identity_mismatch")
+                else:
+                    periodised_grids[account] = load_xlsx(path)
             except ReconciliationError as error:
                 periodised_load_errors[account] = error
         payload = reconcile_grids(
@@ -829,6 +892,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 account: path.name for account, path in periodised_paths.items()
             },
             periodised_load_errors=periodised_load_errors,
+            empty_supplier_orders=empty_orders,
         )
         _emit(payload)
         if payload["overall_status"] == "MATCH":

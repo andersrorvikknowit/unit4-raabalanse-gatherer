@@ -101,6 +101,40 @@ class ExtractUnit4ZipTests(unittest.TestCase):
             self.assertEqual((output_dir / target).read_bytes(), VALID_ENTRIES[entry])
             self.assertEqual(stat.S_IMODE((output_dir / target).stat().st_mode), 0o600)
 
+    def test_exact_empty_supplier_agm_requires_explicit_authorization(self) -> None:
+        entries = dict(VALID_ENTRIES)
+        entries.pop("supplier_127.xlsx")
+        entries["su05_15192.agm"] = b"empty result marker"
+        archive = self._write_zip(entries)
+
+        code, result = self._run(["inspect", "--zip", str(archive)])
+        self.assertEqual(code, 3)
+        self.assertEqual(result["status"], "BLOCKED")
+
+        code, result = self._run([
+            "inspect", "--zip", str(archive),
+            "--allow-empty-agm", "su05_15192.agm",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(result["status"], "SAFE")
+
+        output_dir = self.root / "empty-extracted"
+        output_dir.mkdir(mode=0o700)
+        args = [
+            "extract", "--zip", str(archive), "--output-dir", str(output_dir),
+            "--allow-empty-agm", "su05_15192.agm",
+        ]
+        for entry in entries:
+            target = (
+                "account-2444.agm" if entry.endswith(".agm")
+                else f"file-{len(args)}.xlsx"
+            )
+            args.extend(["--entry", entry, "--target", target])
+        code, result = self._run(args)
+        self.assertEqual(code, 0)
+        self.assertEqual(result["status"], "EXTRACTED")
+        self.assertEqual((output_dir / "account-2444.agm").read_bytes(), b"empty result marker")
+
     def test_rejects_traversal_absolute_drive_and_unc_paths(self) -> None:
         unsafe_names = [
             "../evil.xlsx",

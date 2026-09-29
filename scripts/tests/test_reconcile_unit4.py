@@ -85,6 +85,11 @@ class MoneyParsingTests(unittest.TestCase):
         with self.assertRaisesRegex(reconcile.Blocked, "subcent"):
             reconcile.require_cents(Decimal("1.001"))
 
+    def test_accepts_excel_float_noise_but_not_real_subcent(self):
+        self.assertEqual(reconcile.require_cents(402081.66000000003), Decimal("402081.66"))
+        with self.assertRaisesRegex(reconcile.Blocked, "subcent"):
+            reconcile.require_cents(100.001)
+
     def test_rejects_malformed_space_grouping(self):
         with self.assertRaisesRegex(reconcile.Blocked, "ambiguous"):
             reconcile.parse_money("1234 56,78")
@@ -218,6 +223,45 @@ class ReconciliationTests(unittest.TestCase):
             [item["status"] for item in result["accounts"]],
             ["MATCH"] * 5,
         )
+
+    def test_empty_supplier_is_zero_only_with_attested_order(self):
+        raw = raw_grid(
+            [1510, "0,00"], [1560, "0,00"], [2440, "0,00"],
+            [2444, "0,00"], [2460, "0,00"],
+        )
+        reports = {
+            account: (periodised_grid(account, []),)
+            for account in reconcile.SUPPORTED_ACCOUNTS
+            if account != "2444"
+        }
+        result = reconcile.reconcile_grids(
+            (raw,), reports, company="999999", period="209912",
+            empty_supplier_orders={"2444": "15192"},
+        )
+        self.assertEqual(result["overall_status"], "MATCH")
+        self.assertEqual(result["accounts"][3]["periodised_sum"], "0.00")
+        self.assertEqual(result["accounts"][3]["empty_result_order"], "15192")
+
+        missing_raw = raw_grid(
+            [1510, "0,00"], [1560, "0,00"], [2440, "0,00"], [2460, "0,00"],
+        )
+        result = reconcile.reconcile_grids(
+            (missing_raw,), reports, company="999999", period="209912",
+            empty_supplier_orders={"2444": "15192"},
+        )
+        self.assertEqual(result["accounts"][3]["status"], "MATCH")
+        self.assertTrue(result["accounts"][3]["raw_row_absent_treated_as_zero"])
+
+        nonzero_raw = raw_grid(
+            [1510, "0,00"], [1560, "0,00"], [2440, "0,00"],
+            [2444, "44,00"], [2460, "0,00"],
+        )
+        result = reconcile.reconcile_grids(
+            (nonzero_raw,), reports, company="999999", period="209912",
+            empty_supplier_orders={"2444": "15192"},
+        )
+        self.assertEqual(result["accounts"][3]["status"], "AVVIK")
+        self.assertEqual(result["accounts"][3]["difference"], "-44.00")
 
     def test_matches_exact_norwegian_amount_headers(self):
         raw = grid(

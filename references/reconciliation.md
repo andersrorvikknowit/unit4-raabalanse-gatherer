@@ -9,7 +9,7 @@ visual arithmetic or ad-hoc spreadsheet formulas.
 
 For each extracted workbook, verify the visible client/company and period
 match the request. Identify exactly one Råbalanse workbook and exactly one
-periodisert workbook for each account `1510`, `1560`, `2440`, `2444`, and
+periodisert output for each account `1510`, `1560`, `2440`, `2444`, and
 `2460`. Require `Periodisert saldospesifikasjon kunder` for `1510` and `1560`,
 and `Periodisert saldospesifikasjon leverandør` for `2440`, `2444`, and `2460`.
 
@@ -24,9 +24,23 @@ Reject a wildcard report that contains another account. An empty detail report
 without a visible exact-account parameter is ambiguous and must be `BLOCKED`,
 not assumed to represent a zero balance.
 
+For a supplier `.agm`, use a zero periodised sum only when its order number
+matches the captured supplier order, the exact Unit4 log identifies the
+requested company, account, and period, and the log says
+`No rows found. Report stop`. The product owner confirmed this is an empty
+result. Pass `--empty-supplier <account>=<order>` to the validator along with
+the extracted `account-<account>.agm` path. This flag attests to the log check;
+never set it from the filename or `Ferdig` status alone. For this verified
+empty-result case, the user confirmed that an absent Råbalanse account row
+also means zero and produces no deviation. Do not treat missing raw rows as
+zero for ordinary XLSX reports or for an AGM without the exact log evidence.
+
 ## Parse Monetary Values Safely
 
-Prefer the workbook's underlying numeric values. When a value is stored as
+Prefer the workbook's underlying numeric values. Unit4 can store a
+two-decimal Excel amount with tiny binary-float residue; the validator accepts
+only a residual within two floating-point ULPs of an exact-cent value. When a
+value is stored as
 localized text, normalize Norwegian formatting deliberately: ordinary,
 non-breaking, or thin spaces may be thousands separators; comma may be the
 decimal separator; parentheses or a trailing minus may indicate a negative
@@ -51,7 +65,10 @@ For each account independently:
    the workbook's displayed total when present. A difference is a report
    integrity failure and makes this account `BLOCKED`.
 4. In Råbalanse, locate the exact account row and the **Beløp**/balance value
-   for the requested period. Do not use substring matches. If multiple rows or
+   for the requested period. In Unit4's Trial Balance export, **Year To Date**
+   is the closing balance column. Ignore hidden template sheets such as
+   `_control` when establishing report identity. Do not use substring matches.
+   If multiple rows or
    balance columns could apply, mark the account `BLOCKED`.
 5. Calculate the signed difference:
 
@@ -74,6 +91,14 @@ The overall reconciliation is:
 - `AVVIK` when at least one account is `AVVIK` and neither is `BLOCKED`.
 - `BLOCKED` when any account cannot be verified or calculated safely; still
   report any completed account results separately.
+
+When there is `AVVIK`, make the account comparison the center of the answer:
+show the signed difference, both source totals, the account order and workbook,
+and whether the periodised workbook's displayed total agrees with its detail
+sum. Explain which checks passed and suggest the next human review based on
+the verified evidence. Keep possible causes clearly labeled as hypotheses;
+do not claim a specific customer or supplier caused the difference without
+transaction-level evidence or expose those rows without an explicit request.
 
 Remove only the temporary extracted copies created for this run after the
 check. Keep the original verified ZIP unchanged.
@@ -98,6 +123,12 @@ raw ZIP entry names or other untrusted text into a shell command:
   --company <company-code> \
   --period <YYYYMM>
 ```
+
+For an attested empty supplier result, use
+`--periodised <account>=<account.agm>` and add
+`--empty-supplier <account>=<order>` to the same invocation. The user
+confirmed that a missing Råbalanse row also represents zero only for this
+verified empty supplier case.
 
 Interpret exit code `0` as all `MATCH`, `2` as at least one `AVVIK`, `3` as
 `BLOCKED`, and `1` as invalid invocation. Preserve the JSON output in task

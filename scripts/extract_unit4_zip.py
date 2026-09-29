@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect and safely extract the six workbooks in a Unit4 report ZIP."""
+"""Inspect and safely extract six Unit4 outputs, including an attested empty AGM."""
 
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ MAX_COMPRESSION_RATIO = 1000
 COPY_CHUNK_SIZE = 1024 * 1024
 EXPECTED_ENTRY_COUNT = 6
 TARGET_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.xlsx\Z", re.ASCII)
+EMPTY_AGM_RE = re.compile(r"su05_\d+\.agm\Z", re.ASCII)
+EMPTY_TARGET_RE = re.compile(r"account-(?:2440|2444|2460)\.agm\Z", re.ASCII)
 
 
 class InputError(Exception):
@@ -85,13 +87,13 @@ def _validate_entry_name(name: str) -> None:
         raise BlockedError("archive contains parent-directory traversal")
 
 
-def _validate_regular_file(info: zipfile.ZipInfo) -> None:
+def _validate_regular_file(info: zipfile.ZipInfo, allowed_agm: str | None) -> None:
     if info.is_dir() or info.filename.endswith(("/", "\\")):
         raise BlockedError("archive contains a directory entry")
     if info.flag_bits & 0x1:
         raise BlockedError("archive contains an encrypted entry")
-    if not info.filename.casefold().endswith(".xlsx"):
-        raise BlockedError("archive contains a non-xlsx entry")
+    if not info.filename.casefold().endswith(".xlsx") and info.filename != allowed_agm:
+        raise BlockedError("archive contains a non-xlsx entry without exact AGM authorization")
 
     unix_mode = (info.external_attr >> 16) & 0xFFFF
     file_type = stat.S_IFMT(unix_mode)
@@ -107,7 +109,11 @@ def _validate_regular_file(info: zipfile.ZipInfo) -> None:
             raise BlockedError("archive entry has an unsafe compression ratio")
 
 
-def _read_and_validate(zip_path: Path) -> tuple[zipfile.ZipFile, list[zipfile.ZipInfo]]:
+def _read_and_validate(
+    zip_path: Path, allowed_agm: str | None = None
+) -> tuple[zipfile.ZipFile, list[zipfile.ZipInfo]]:
+    if allowed_agm is not None and not EMPTY_AGM_RE.fullmatch(allowed_agm):
+        raise InputError("allowed AGM must be an exact SU05 order filename")
     if not zip_path.exists() or not zip_path.is_file():
         raise InputError("ZIP path must identify an existing regular file")
 
@@ -127,7 +133,7 @@ def _read_and_validate(zip_path: Path) -> tuple[zipfile.ZipFile, list[zipfile.Zi
         total_size = 0
         for info in infos:
             _validate_entry_name(info.filename)
-            _validate_regular_file(info)
+            _validate_regular_file(info, allowed_agm)
 
             normalized = _normalized_name(info.filename)
             if normalized in normalized_names:
@@ -138,6 +144,11 @@ def _read_and_validate(zip_path: Path) -> tuple[zipfile.ZipFile, list[zipfile.Zi
             if total_size > MAX_TOTAL_SIZE:
                 raise BlockedError("archive exceeds the 250 MiB total safety limit")
 
+        if allowed_agm is not None and sum(
+            info.filename == allowed_agm for info in infos
+        ) != 1:
+            raise BlockedError("authorized empty AGM is missing or duplicated")
+
         bad_entry = archive.testzip()
         if bad_entry is not None:
             raise BlockedError("archive contains an entry with an invalid checksum")
@@ -147,8 +158,8 @@ def _read_and_validate(zip_path: Path) -> tuple[zipfile.ZipFile, list[zipfile.Zi
         raise
 
 
-def inspect_archive(zip_path: Path) -> dict[str, object]:
-    archive, infos = _read_and_validate(zip_path)
+def inspect_archive(zip_path: Path, allowed_agm: str | None = None) -> dict[str, object]:
+    archive, infos = _read_and_validate(zip_path, allowed_agm)
     try:
         return {
             "status": "SAFE",
@@ -211,8 +222,11 @@ def _validate_mappings(
     # ordinary zip is length-safe and keeps the helper compatible with Python
     # 3.9 (the strict keyword was added in Python 3.10).
     for entry, target in zip(entries, targets):
-        if not TARGET_RE.fullmatch(target):
-            raise InputError("targets must be controlled ASCII .xlsx basenames")
+        if info_by_name[entry].filename.casefold().endswith(".xlsx"):
+            if not TARGET_RE.fullmatch(target):
+                raise InputError("XLSX targets must be controlled ASCII .xlsx basenames")
+        elif not EMPTY_TARGET_RE.fullmatch(target):
+            raise InputError("AGM target must identify a supported supplier account")
         normalized = _normalized_name(target)
         if normalized in normalized_targets:
             raise InputError("target names must be unique ignoring case")
@@ -226,9 +240,10 @@ def extract_archive(
     output_dir: Path,
     entries: list[str] | None,
     targets: list[str] | None,
+    allowed_agm: str | None = None,
 ) -> dict[str, object]:
     resolved_output = _validate_output_dir(output_dir)
-    archive, infos = _read_and_validate(zip_path)
+    archive, infos = _read_and_validate(zip_path, allowed_agm)
     if _is_windows():
         return _extract_archive_windows(archive, infos, resolved_output, entries, targets)
 
@@ -386,12 +401,14 @@ def _build_parser() -> JsonArgumentParser:
 
     inspect_parser = subparsers.add_parser("inspect")
     inspect_parser.add_argument("--zip", required=True, type=Path)
+    inspect_parser.add_argument("--allow-empty-agm")
 
     extract_parser = subparsers.add_parser("extract")
     extract_parser.add_argument("--zip", required=True, type=Path)
     extract_parser.add_argument("--output-dir", required=True, type=Path)
     extract_parser.add_argument("--entry", action="append")
     extract_parser.add_argument("--target", action="append")
+    extract_parser.add_argument("--allow-empty-agm")
     return parser
 
 
@@ -399,10 +416,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = _build_parser().parse_args(argv)
         if args.command == "inspect":
-            payload = inspect_archive(args.zip)
+            payload = inspect_archive(args.zip, args.allow_empty_agm)
         else:
             payload = extract_archive(
-                args.zip, args.output_dir, args.entry, args.target
+                args.zip, args.output_dir, args.entry, args.target, args.allow_empty_agm
             )
         _emit(payload)
         return 0

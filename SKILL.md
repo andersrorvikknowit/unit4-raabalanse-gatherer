@@ -8,6 +8,34 @@ description: Gather and reconcile Knowit Unit4 Råbalanse with customer reports 
 Gather and reconcile a controlled report set from Knowit's production
 Unit4/UBW environment using Codex and the user's connected Chrome profile.
 
+## Mandatory save gate
+
+For **every** report, verify the active company and committed parameters, then
+record `begin` in the run manifest **before** touching **Lagre**. Target the
+enabled **Lagre** button in the report form and send **one native
+double-click**: `await tab.click(lagreIndex, { clickCount: 2 })`.
+Do not substitute a single click, two separate click calls, **Eksport**, or a
+click on **Dine bestilte rapporter**.
+
+Read the result immediately. The order is submitted for this run only when a
+readable Unit4 confirmation gives the **complete Ordrenummer** and `confirm`
+records that exact number in the manifest. Do not navigate to the next report
+or account before that happens. If **Lagre** becomes disabled, an order row
+appears, or the page changes without a captured confirmation number, follow
+the unknown-submission procedure in [Unit4 ordering](references/unit4-ordering.md)
+and stop; never infer the number from the newest row or double-click again
+without the guarded retry evidence.
+
+For **Periodisert saldospesifikasjon kunder** and
+**Periodisert saldospesifikasjon leverandør**, verify that the actual bottom
+toolbar **Lagre** button is the double-click target immediately before saving.
+Unit4 can rebuild the form after account or period changes: a previously read
+accessibility index may then point to **Beløps kolonne** instead. If the index
+is stale or unstable, use a fresh screenshot to target the visible **Lagre**
+button with one native coordinate double-click. An opened parameter dropdown
+is evidence that **Lagre** was missed; close it and apply the no-confirmation
+order-table check before any retry.
+
 ## Current Validated Scope
 
 For each run, order and download exactly:
@@ -25,7 +53,14 @@ future production run. Never silently expand the account set.
 
 Finish the Råbalanse order before creating the five account-specific orders.
 Do not download until all six exact orders have status `Ferdig`. Download the
-six reports together as one ZIP, unpack it, and reconcile all five accounts.
+six outputs together as one ZIP, unpack them, and reconcile all five accounts.
+For a supplier order only, Unit4 may produce `su05_<order>.agm` when the
+report has no rows. The product owner confirmed that this means an empty
+result. Use it as a zero periodised amount only after verifying the exact
+order's Unit4 log says `No rows found. Report stop` and identifies the
+requested company, account, and period. For this verified empty-result case,
+the user confirmed that an absent Råbalanse account row also means zero and
+there is no deviation; never apply that rule to a non-empty report.
 
 ## Required Inputs
 
@@ -96,16 +131,23 @@ codes in chat.
 
 ## Efficient UI Operation
 
-Use Computer Use to group deterministic actions on a verified Unit4 page into
-one interaction when the tool supports it. Read the UI after each meaningful
+Use Computer Use to group deterministic actions on a verified Unit4 page,
+preferring one interaction for each verified form or table phase. When a
+persistent Computer Use REPL is available, batch the deterministic clicks and
+typing after a fresh state read, then return only the relevant committed form
+or order-row state. Read the UI after each meaningful
 decision boundary rather than after every click: active company and report,
 committed account and period, the result of each **Lagre**, and exact order
-rows before download. Keep the account check especially strict: a previous
+rows before download. Use the native double-click procedure for **Lagre**
+and its confirmation safeguards in [Unit4 ordering](references/unit4-ordering.md).
+Keep the account check especially strict: a previous
 Unit4 run showed `1510` in the form while the generated workbook included
 `1560`. Do not group a **Lagre** click with a later account submission, or
 assume that a painted account value was committed. Reuse the verified customer
 or supplier report page for its next account and use the reusable order-table
 baseline described in [Unit4 ordering](references/unit4-ordering.md).
+For supplier reports, ignore **Leverandørgruppe**: leave its default `*` value
+unchanged and use **Konto** and **Periode** for the requested selection.
 
 ## Workflow
 
@@ -129,7 +171,8 @@ ambiguity at any link is a blocker; never substitute a nearby row or file.
 Report two independent outcomes:
 
 - **Gathering:** `SUCCESS` only when all six exact orders finished and the
-  verified ZIP contains the six corresponding workbooks. Otherwise report
+  verified ZIP contains the six corresponding outputs, each an XLSX workbook
+  or an explicitly verified empty supplier AGM. Otherwise report
   `BLOCKED` with the exact stage and known order numbers.
 - **Reconciliation:** `MATCH`, `AVVIK`, or `BLOCKED`. A non-zero difference is
   `AVVIK`; it does not turn a successful gathering into a download failure.
