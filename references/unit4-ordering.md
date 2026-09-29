@@ -4,10 +4,21 @@ Use this procedure only after the skill's required company and period are
 known. The supported account set is exactly `1510`, `1560`, `2440`, `2444`,
 and `2460`.
 
+With the `unit4` MCP server ([Unit4 MCP server](mcp-server.md)),
+`unit4_select_company`, `unit4_order` and `unit4_wait_orders` carry out this
+procedure. `unit4_order` does the company check, the report identity check,
+the dropdown **Periode**, the committed **Konto**, the baseline, `begin`, the
+single **Lagre** double-click, `confirm` and the bounded second save.
+`unit4_wait_orders` records `track` and `finish-order`, and calls `complete`
+once all six orders are finished. You still create the manifest before the
+first order and run the guarded `cleanup` after reconciliation. Use the manual
+steps in this file only when the server is unavailable, and read them as the
+specification the tools enforce.
+
 ## Durable Run Manifest
 
-Load Codex workspace dependencies, use the returned bundled Python executable,
-and resolve `scripts/run_manifest.py` relative to this skill's `SKILL.md`.
+Resolve the Python interpreter as described in the skill's
+[Python helpers](../SKILL.md#python-helpers) section, and resolve `scripts/run_manifest.py` relative to this skill's `SKILL.md`.
 Pass every executable, script, path, and value as a separately shell-quoted
 data argument. Do not hand-edit the manifest or replace the helper with an
 in-memory note. On POSIX hosts the helper enforces private owner/mode checks;
@@ -17,7 +28,7 @@ temporary-directory or workspace ACL boundary.
 1. Create the manifest once, before the first **Lagre**, with:
 
    ```text
-   <bundled-python> <skill-root>/scripts/run_manifest.py create \
+   <python> <skill-root>/scripts/run_manifest.py create \
      --company <company-code> --period <YYYYMM>
    ```
 
@@ -61,7 +72,7 @@ On an unexpected result, stop and preserve the manifest path.
 ## Reduce Browser Round Trips
 
 On a page whose identity has been verified, group predictable UI actions in a
-single Computer Use interaction when supported: open a control, make the exact
+single browser-control interaction when supported: open a control, make the exact
 selection, move focus away, and read the resulting state. Use the current UI
 state or accessibility data for targets. Stop the sequence and inspect again
 when a dialog, navigation, loading state, or unexpected value changes the next
@@ -127,10 +138,12 @@ closes. Stop rather than guessing when the company is missing or ambiguous.
    Do not filter the baseline by accounting period or account because the
    ordered-reports table does not expose those parameters. In this Knowit Unit4
    environment, after verifying the enabled **Lagre** button on the report
-   form, send one native double-click interaction. In Chrome Computer Use, use
-   `await tab.click(lagreIndex, { clickCount: 2 })` with the fresh accessibility
-   index for that exact button; do not send a single click or two separate
-   click calls. On the longer customer and supplier report forms, Unit4 may
+   form, send one native double-click interaction. In Codex Chrome Computer
+   Use, use `await tab.click(lagreIndex, { clickCount: 2 })` with the fresh
+   accessibility index for that exact button. In Claude in Chrome, send one
+   `double_click` computer action on the fresh element reference or
+   screenshot coordinate for that exact button. Do not send a single click or
+   two separate click calls. On the longer customer and supplier report forms, Unit4 may
    rebuild accessibility indices after an account or period change. If a fresh
    index becomes stale or points to **Beløps kolonne**, inspect a fresh
    screenshot and double-click the visible bottom-toolbar **Lagre** button by

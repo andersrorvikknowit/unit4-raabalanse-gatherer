@@ -1,0 +1,22 @@
+{
+  "name": "unit4-raabalanse-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Guarded Unit4 Råbalanse tools over Playwright MCP extension mode",
+  "type": "module",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "bin": {
+    "unit4-raabalanse-mcp": "src/server.ts"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "@playwright/mcp": "0.0.83",
+    "zod": "4.6.5"
+  }
+}

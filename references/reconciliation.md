@@ -105,15 +105,15 @@ check. Keep the original verified ZIP unchanged.
 
 ## Run the Validator
 
-Load Codex workspace dependencies, use the returned bundled Python executable,
-and resolve `scripts/reconcile_unit4.py` relative to this skill's `SKILL.md`
+Resolve the Python interpreter as described in the skill's
+[Python helpers](../SKILL.md#python-helpers) section, and resolve `scripts/reconcile_unit4.py` relative to this skill's `SKILL.md`
 rather than the user's current working directory. Invoke it once with the
 verified identity chain and controlled extracted paths. Pass every executable,
 script, and file path as a separately shell-quoted argument; never interpolate
 raw ZIP entry names or other untrusted text into a shell command:
 
 ```text
-<bundled-python> <skill-root>/scripts/reconcile_unit4.py \
+<python> <skill-root>/scripts/reconcile_unit4.py \
   --raw-balance <råbalanse.xlsx> \
   --periodised 1510=<1510.xlsx> \
   --periodised 1560=<1560.xlsx> \

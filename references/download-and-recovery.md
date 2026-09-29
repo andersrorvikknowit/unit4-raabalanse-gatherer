@@ -7,6 +7,12 @@ the requested company, period, account, and `No rows found. Report stop`.
 The product owner confirmed that such an AGM means an empty report. Do not
 infer this from the filename or `Ferdig` status alone.
 
+With the `unit4` MCP server, `unit4_verify_empty_agm` does the AGM log check.
+`unit4_download_zip` does the row selection and the single **Last ned**, and
+returns the exact new `Rapporter_<timestamp>.zip` path from the browser
+download folder. `unit4_clear_buffer` is the buffer recovery. Continue with
+[Verify and Extract](#verify-and-extract) on the returned path.
+
 ## Just-in-Time File Access
 
 Before downloading, determine whether the connected browser can return a
@@ -54,8 +60,8 @@ before **Last ned** unless one of these paths can identify the result uniquely.
 
 ## Verify and Extract
 
-Load Codex workspace dependencies, use the returned bundled Python executable,
-and resolve `scripts/extract_unit4_zip.py` relative to this skill's `SKILL.md`.
+Resolve the Python interpreter as described in the skill's
+[Python helpers](../SKILL.md#python-helpers) section, and resolve `scripts/extract_unit4_zip.py` relative to this skill's `SKILL.md`.
 Pass every executable, script, path, and entry name as a separately shell-quoted
 data argument. Never concatenate an entry name into shell syntax or execute it
 unquoted. For extraction, the helper enforces private owner/mode checks on
@@ -88,7 +94,7 @@ the inspection step below.
    corresponding controlled targets established by the identity mapping:
 
    ```text
-   <bundled-python> <skill-root>/scripts/extract_unit4_zip.py extract \
+   <python> <skill-root>/scripts/extract_unit4_zip.py extract \
      --zip <archive> --output-dir <private-directory> \
      --entry <raw-entry> --target raw-balance.xlsx \
      --entry <1510-entry> --target account-1510.xlsx \

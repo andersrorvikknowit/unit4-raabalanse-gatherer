@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "unit4": {
+      "command": "node",
+      "args": ["mcp/src/server.ts"]
+    }
+  }
+}
