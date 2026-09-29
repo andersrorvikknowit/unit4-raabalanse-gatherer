@@ -52,6 +52,11 @@ server.registerTool('unit4_clear_buffer', {
   inputSchema: { consent: z.boolean() },
 }, async ({ consent }) => reply(await outcomeOf(() => unit4.clearBuffer(consent))));
 
+server.registerTool('unit4_close_tabs', {
+  description: 'Close the activity tabs this skill opens for one company (the three report forms, Dine bestilte rapporter, and report log views). Other Unit4 activities are left open. unit4_download_zip already does this after a successful download.',
+  inputSchema: { company: z.string().regex(/^\d{2,10}$/) },
+}, async ({ company }) => reply(await outcomeOf(() => unit4.closeTabs(company))));
+
 server.registerTool('unit4_probe_lagre', {
   description: 'Read-only diagnosis for a report tab (exact tab name): runs Playwright\'s actionability checks on Lagre as a trial (no click) and reports what element is under the button.',
   inputSchema: { tab: z.string() },

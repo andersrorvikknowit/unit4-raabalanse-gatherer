@@ -65,7 +65,9 @@ screenshot-and-click phase with one guarded call.
 - Do not use the shared tab or other Unit4 tabs during a run.
 - Unit4 allows at most 10 open activities per session. A log view (TRA014)
   counts as one, and so do report forms and the order table. The tools reuse
-  one tab per report type and close log views after reading them. When Unit4
+  one tab per report type, close log views after reading them, and close the
+  run's tabs for that company after a successful download
+  (`unit4_close_tabs` does the same on demand). When Unit4
   still refuses, the tool returns `ACTIVITY_LIMIT`. Logging out and back in
   clears it. Clearing the buffer did not clear it on 2026-09-29.
 

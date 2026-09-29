@@ -59,6 +59,19 @@ const SCOPE_KEYS: Record<string, RecordKey[]> = {
 
 export type Outcome = { status: string; [key: string]: unknown };
 
+// The activity tabs a run opens for one company: the three report forms, the
+// order table, and log views (TRA014, titled by report). Log views first, as
+// they stack on top of the order table.
+export function runTabNames(company: string): string[] {
+  const reports = Object.values(REPORTS);
+  const logTitles = [...new Set(reports.flatMap((r) => [r.heading, ...r.tableNames]))];
+  return [
+    ...logTitles.map((t) => `${company} ${t} : TRA014`),
+    `${company} Dine bestilte rapporter : TRA003`,
+    ...reports.map((r) => `${company} ${r.heading} : ${r.viewId}`),
+  ];
+}
+
 export function formatDate(date: Date): string {
   const dd = String(date.getDate()).padStart(2, '0');
   const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -401,7 +414,10 @@ export class Unit4 {
       return { status: 'NO_UNIQUE_ZIP', reason: file.status, candidates: file.candidates, orders, message: 'Recovery: unit4_clear_buffer with consent, then retry once.' };
     }
     const agm = KEY_ORDER.map((k) => m.records[k].filename!).filter((f) => f.toLowerCase().endsWith('.agm'));
-    return { status: 'DOWNLOADED', zip: file.path, size: file.size, orders, entries: Object.fromEntries(KEY_ORDER.map((k) => [k, m.records[k].filename])), agm };
+    // Done with Unit4 for this run: free the activities (Unit4 allows 10).
+    const tabs = await this.bridge.run<{ closed: string[]; failed: unknown[] }>('opCloseTabs', { tabNames: runTabNames(m.company) })
+      .catch((error) => ({ closed: [], failed: [String((error as Error).message ?? error)] }));
+    return { status: 'DOWNLOADED', closedTabs: tabs.closed, tabCloseFailures: tabs.failed, zip: file.path, size: file.size, orders, entries: Object.fromEntries(KEY_ORDER.map((k) => [k, m.records[k].filename])), agm };
   }
 
   async clearBuffer(consent: boolean): Promise<Outcome> {
@@ -412,6 +428,13 @@ export class Unit4 {
     const res = await this.bridge.run<Record<string, unknown>>('opClearBuffer', {}, 90000);
     this.bufferCleared = true;
     return { status: res.ok ? 'OK' : 'BLOCKED', ...res };
+  }
+
+  async closeTabs(company: string): Promise<Outcome> {
+    const blocked = await this.guard();
+    if (blocked) return blocked;
+    const res = await this.bridge.run<{ closed: string[]; failed: unknown[] }>('opCloseTabs', { tabNames: runTabNames(company) });
+    return { status: res.failed.length ? 'BLOCKED' : 'OK', ...res };
   }
 
   async probeLagre(tabName: string): Promise<Outcome> {

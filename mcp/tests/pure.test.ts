@@ -6,7 +6,7 @@ import test from 'node:test';
 import { composeOp, parseRunCodeResult } from '../src/bridge.ts';
 import { snapshot, waitForNew, ZIP_PATTERN, logPattern } from '../src/downloads.ts';
 import { parseUnit4Log, verifyEmptyResultLog } from '../src/logparse.ts';
-import { formatDate, parseConfirmation } from '../src/unit4.ts';
+import { formatDate, parseConfirmation, runTabNames } from '../src/unit4.ts';
 
 test('composeOp builds a valid function expression with JSON-embedded args', () => {
   const hostile = "'); process.exit(1); ('";
@@ -93,4 +93,14 @@ test('waitForNew accepts one new file and rejects ambiguity', async () => {
   const before3 = await snapshot(ZIP_PATTERN, dir);
   assert.equal((await waitForNew(before3, ZIP_PATTERN, 1200, dir)).status, 'TIMEOUT');
   await fs.rm(dir, { recursive: true });
+});
+
+test('runTabNames lists only this run\'s activities for one company, log views first', () => {
+  const names = runTabNames('312');
+  assert.ok(names.every((n) => n.startsWith('312 ')));
+  assert.ok(names.includes('312 Dine bestilte rapporter : TRA003'));
+  assert.ok(names.includes('312 Periodisert saldospesifikasjon leverandører : TRA015'));
+  assert.ok(names.includes('312 Råbalanse : TRA014'));
+  assert.ok(names.indexOf('312 Råbalanse : TRA014') < names.indexOf('312 Dine bestilte rapporter : TRA003'));
+  assert.ok(!names.some((n) => n.startsWith('Meny')));
 });

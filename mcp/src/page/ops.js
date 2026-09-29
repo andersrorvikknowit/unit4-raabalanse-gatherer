@@ -458,6 +458,20 @@ async function opCloseTab(page, { tabName }) {
   return u4CloseTab(page, tabName);
 }
 
+// Close exactly the named activity tabs that are open; leave everything else.
+async function opCloseTabs(page, { tabNames }) {
+  const open = new Set((await u4Tabs(page)).map((t) => t.name));
+  const closed = [];
+  const failed = [];
+  for (const name of tabNames) {
+    if (!open.has(name)) continue;
+    const res = await u4CloseTab(page, name);
+    if (res.closed && !res.modals?.length) closed.push(name);
+    else { failed.push({ name, ...res }); break; }
+  }
+  return { closed, failed };
+}
+
 async function opSnapshot(page, { tabName, maxChars }) {
   const target = tabName ? await u4ActivityFrame(page, tabName) : page;
   const snap = await target.locator('body').ariaSnapshot({ timeout: 15000 });
@@ -471,7 +485,7 @@ export const helpers = [
 
 export const ops = {
   opState, opSelectCompany, opEnsureReport, opSetParams, opReadParams, opScanOrders, opLagre,
-  opAckSuccess, opSelectRows, opClickDownload, opOpenLog, opCloseTab, opProbeLagre,
+  opAckSuccess, opSelectRows, opClickDownload, opOpenLog, opCloseTab, opCloseTabs, opProbeLagre,
   opClearBuffer, opSnapshot,
 };
 

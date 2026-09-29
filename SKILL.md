@@ -118,7 +118,7 @@ described in this skill, and returns one JSON status. Setup is in
 | Råbalanse | `unit4_order` with key `raw_balance`, then `unit4_wait_orders` until it is `Ferdig` |
 | Accounts | `unit4_order` for `1510`, `1560`, `2440`, `2444`, `2460` in that order |
 | Wait | `unit4_wait_orders`; for each supplier key it lists as AGM, `unit4_verify_empty_agm` |
-| Download | `unit4_download_zip`, then the ZIP `inspect`/`extract` helpers and reconciliation |
+| Download | `unit4_download_zip` (closes this run's Unit4 tabs afterwards), then the ZIP `inspect`/`extract` helpers and reconciliation |
 
 Continue only on the documented success status (`OK`, `CONFIRMED`,
 `COMPLETE`, `VERIFIED_EMPTY`, `DOWNLOADED`, and `FINISHED_SO_FAR` from
@@ -138,6 +138,12 @@ every other status as a stop:
 - `STILL_PENDING`: report the exact statuses and ask whether to keep waiting.
 - `UNKNOWN`, `BLOCKED`, `FAILED`, `NOT_VERIFIED`, `NO_UNIQUE_ZIP` or `ERROR`:
   follow this skill's stop and handoff rules for that stage.
+
+After a successful download, `unit4_download_zip` closes the activities this
+run opened for the company: the three report forms, **Dine bestilte
+rapporter**, and log views. Use `unit4_close_tabs` with the company code for
+tabs left over from an earlier or interrupted run, but never while that
+company's run is still ordering or waiting.
 
 Never retry `unit4_order` after `UNKNOWN`. Call `unit4_clear_buffer` only for
 the buffer recovery in [ZIP download and recovery](references/download-and-recovery.md).
