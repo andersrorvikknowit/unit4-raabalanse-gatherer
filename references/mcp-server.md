@@ -67,9 +67,13 @@ screenshot-and-click phase with one guarded call.
   counts as one, and so do report forms and the order table. The tools reuse
   one tab per report type, close log views after reading them, and close the
   run's tabs for that company after a successful download
-  (`unit4_close_tabs` does the same on demand). When Unit4
-  still refuses, the tool returns `ACTIVITY_LIMIT`. Logging out and back in
-  clears it. Clearing the buffer did not clear it on 2026-09-29.
+  (`unit4_close_tabs` does the same on demand). When Unit4 still refuses
+  (`Systemet tillater at opptil 10 aktiviteter er åpne samtidig`), the tools
+  log out and return to the application once, which reopens Unit4 in the same
+  session with every activity closed, then restore the company and retry.
+  `unit4_reset_activities` does the same on demand (at most 3 per server
+  session). This also closes Unit4 activities the user opened. Clearing the
+  buffer did not clear the limit on 2026-09-29.
 
 ## Unit4 DOM notes (CR 26.1)
 
@@ -114,3 +118,9 @@ These notes come from read-only discovery and one confirmed test order
   then the dialog's button `Tøm bufferen`, then `Fullført` with `OK`, then close
   the About dialog with `Steng (Escape)`. The page does not reload, and the
   extension stays attached.
+- **Activity reset**: the same user menu's log-out entry opens the page "Do
+  you want to log out of your account?" with `Yes` and `Return to the
+  application`. Only the second is ever clicked; Unit4 then reloads with no
+  activities and may show the default company. The log-out entry's label is
+  matched as `Logg ut` / `Logg av` / `Log out` / `Logout` / `Sign out` and has
+  not been confirmed by live discovery yet.

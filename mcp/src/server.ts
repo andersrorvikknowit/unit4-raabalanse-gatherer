@@ -52,6 +52,11 @@ server.registerTool('unit4_clear_buffer', {
   inputSchema: { consent: z.boolean() },
 }, async ({ consent }) => reply(await outcomeOf(() => unit4.clearBuffer(consent))));
 
+server.registerTool('unit4_reset_activities', {
+  description: 'Recovery for ACTIVITY_LIMIT ("Systemet tillater at opptil 10 aktiviteter er åpne samtidig"): user menu > log out > "Return to the application" (never "Yes"). Unit4 reloads in the same session with all activities closed; the given company is made active again. unit4_order and unit4_download_zip already do this once automatically when opening a report hits the limit. At most 3 per server session.',
+  inputSchema: { company: z.string().regex(/^\d{2,10}$/).optional() },
+}, async ({ company }) => reply(await outcomeOf(() => unit4.resetActivities(company))));
+
 server.registerTool('unit4_close_tabs', {
   description: 'Close the activity tabs this skill opens for one company (the three report forms, Dine bestilte rapporter, and report log views). Other Unit4 activities are left open. unit4_download_zip already does this after a successful download.',
   inputSchema: { company: z.string().regex(/^\d{2,10}$/) },

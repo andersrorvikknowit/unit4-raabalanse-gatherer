@@ -433,6 +433,45 @@ async function opClearBuffer(page) {
   return { ok: (await u4Modals(page)).length === 0, company: await u4Company(page) };
 }
 
+// Free Unit4's activity slots: the user menu's log-out entry opens the
+// "Do you want to log out of your account?" page, and "Return to the
+// application" reloads Unit4 in the same session with no activities open.
+// Never clicks "Yes".
+async function opLogoutReturn(page) {
+  const logoutName = /^(Logg ut|Logg av|Log out|Logout|Sign out)$/i;
+  await page.getByRole('toolbar', { name: 'Program' }).getByRole('button', { name: /Handlingsmeny$/ }).click();
+  const entry = page.getByRole('link', { name: logoutName })
+    .or(page.getByRole('menuitem', { name: logoutName }))
+    .or(page.getByRole('button', { name: logoutName }))
+    .filter({ visible: true });
+  await entry.first().waitFor({ timeout: 10000 }).catch(() => {});
+  if ((await entry.count()) !== 1) {
+    await page.keyboard.press('Escape');
+    return { ok: false, reason: 'logout_entry_not_unique', count: await entry.count() };
+  }
+  await entry.click();
+  const back = page.getByRole('button', { name: /^(Return to the application|Tilbake til applikasjonen)$/i })
+    .or(page.getByRole('link', { name: /^(Return to the application|Tilbake til applikasjonen)$/i }));
+  try {
+    await back.first().waitFor({ timeout: 30000 });
+  } catch {
+    return { ok: false, reason: 'return_button_missing', url: page.url().replace(/[?#].*/, '') };
+  }
+  if ((await back.count()) !== 1) return { ok: false, reason: 'return_button_not_unique' };
+  await back.click();
+  // Unit4 reloads; the company button reappears once the shell is ready.
+  const deadline = Date.now() + 90000;
+  while (Date.now() < deadline) {
+    const company = await u4Company(page).catch(() => null);
+    if (company) {
+      await page.waitForTimeout(1000);
+      return { ok: true, company, tabs: await u4Tabs(page).catch(() => []) };
+    }
+    await page.waitForTimeout(500);
+  }
+  return { ok: false, reason: 'application_not_ready', url: page.url().replace(/[?#].*/, '') };
+}
+
 // Read-only: run Playwright's actionability checks on Lagre without clicking.
 async function opProbeLagre(page, { tabName }) {
   const frame = await u4ActivityFrame(page, tabName);
@@ -486,7 +525,7 @@ export const helpers = [
 export const ops = {
   opState, opSelectCompany, opEnsureReport, opSetParams, opReadParams, opScanOrders, opLagre,
   opAckSuccess, opSelectRows, opClickDownload, opOpenLog, opCloseTab, opCloseTabs, opProbeLagre,
-  opClearBuffer, opSnapshot,
+  opClearBuffer, opLogoutReturn, opSnapshot,
 };
 
 export const constants = { ACTIVITY_LIMIT_TEXT };

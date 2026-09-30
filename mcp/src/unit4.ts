@@ -84,7 +84,9 @@ function daysAgo(days: number): string {
   return formatDate(d);
 }
 
-const SUCCESS_RE = /Rapporten har ordrenummer (\d+)(?!\d)/;
+const MAX_ACTIVITY_RESETS = 3;
+
+const SUCCESS_RE =/Rapporten har ordrenummer (\d+)(?!\d)/;
 
 export function parseConfirmation(dialogs: Array<{ kind: string | null; text: string }>): string | null {
   const success = dialogs.filter((d) => d.kind === 'u4_messageoverlay_success');
@@ -115,6 +117,7 @@ function decodeEntities(value: string | null): string | null {
 export class Unit4 {
   readonly bridge: Bridge;
   private bufferCleared = false;
+  private activityResets = 0;
   private downloadClicks = new Map<string, number>();
   // Baseline scan window per manifest and report scope, so the post-click
   // comparison uses the exact same table scope as the baseline.
@@ -159,8 +162,16 @@ export class Unit4 {
     return res;
   }
 
+  // On Unit4's 10-activity limit, log out and return to the application once
+  // (it reopens with no activities), then retry opening the report.
   private async ensureReport(company: string, key: RecordKey): Promise<{ ok: true; tabName: string } | { ok: false; outcome: Outcome }> {
-    const res = await this.bridge.run<Record<string, any>>('opEnsureReport', { company, report: REPORTS[reportFor(key)] }, 90000);
+    const open = () => this.bridge.run<Record<string, any>>('opEnsureReport', { company, report: REPORTS[reportFor(key)] }, 90000);
+    let res = await open();
+    if (!res.ok && res.reason === 'activity_limit') {
+      const reset = await this.resetActivities(company);
+      if (reset.status !== 'OK') return { ok: false, outcome: { ...reset, trigger: 'activity_limit' } };
+      res = await open();
+    }
     if (res.ok) return { ok: true, tabName: res.tabName };
     const status = res.reason === 'activity_limit' ? 'ACTIVITY_LIMIT' : 'BLOCKED';
     return { ok: false, outcome: { status, ...res } };
@@ -430,6 +441,28 @@ export class Unit4 {
     return { status: res.ok ? 'OK' : 'BLOCKED', ...res };
   }
 
+  // Recovery for "Systemet tillater at opptil 10 aktiviteter er åpne samtidig":
+  // user menu > log out > "Return to the application". Unit4 comes back in
+  // the same session with every activity closed; the company is restored.
+  async resetActivities(company?: string): Promise<Outcome> {
+    if (this.activityResets >= MAX_ACTIVITY_RESETS) return { status: 'ACTIVITY_LIMIT', reason: 'activity_resets_exhausted', message: 'Unit4 still reports the 10-activity limit. Ask the user to close unused Unit4 tabs, or log out and back in.' };
+    const blocked = await this.guard();
+    if (blocked) return blocked;
+    this.activityResets += 1;
+    const res = await this.bridge.run<Record<string, any>>('opLogoutReturn', {}, 150000);
+    if (!res.ok) {
+      const s = await this.state().catch(() => null);
+      if (s && !s.loggedIn) return { status: 'NEEDS_USER', reason: 'not_logged_in', message: 'Unit4 left the session during the activity reset. Complete Unit4 sign-in in the shared tab, then retry.', detail: res };
+      return { status: 'BLOCKED', reason: `activity_reset_${res.reason}`, detail: res };
+    }
+    if (company && res.company?.code !== company) {
+      const selected = await this.bridge.run<Record<string, any>>('opSelectCompany', { code: company }, 90000);
+      if (!selected.ok) return { status: 'BLOCKED', reason: 'company_not_restored_after_activity_reset', ...selected };
+      return { status: 'OK', company: selected.company, tabs: res.tabs };
+    }
+    return { status: 'OK', company: res.company, tabs: res.tabs };
+  }
+
   async closeTabs(company: string): Promise<Outcome> {
     const blocked = await this.guard();
     if (blocked) return blocked;
@@ -455,7 +488,7 @@ export async function outcomeOf(fn: () => Promise<Outcome>): Promise<Outcome> {
   } catch (error) {
     if (error instanceof ManifestError) return { status: 'BLOCKED', reason: 'manifest_transition_failed', exitCode: error.result.exitCode, manifest: error.result.payload };
     if (error instanceof BridgeError) {
-      if (/activity_limit/.test(error.message)) return { status: 'ACTIVITY_LIMIT', message: 'Unit4 allows 10 open activities. Close unused Unit4 tabs, or clear the buffer / log out and in, then retry.' };
+      if (/activity_limit/.test(error.message)) return { status: 'ACTIVITY_LIMIT', message: 'Unit4 allows 10 open activities. Call unit4_reset_activities with the company, then retry the same call.' };
       return { status: error.code === 'browser_detached' ? 'NEEDS_USER' : 'ERROR', reason: error.code, detail: error.message };
     }
     return { status: 'ERROR', reason: 'unexpected', detail: String((error as Error).message ?? error).slice(0, 300) };

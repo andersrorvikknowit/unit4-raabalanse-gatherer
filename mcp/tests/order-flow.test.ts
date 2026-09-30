@@ -217,3 +217,33 @@ test('record left SUBMITTING is resolved by table evidence, never by a blind cli
   assert.equal(bridge.count('opLagre'), 0);
   await fs.rm(dir, { recursive: true });
 });
+
+test('activity limit is cleared by log out > return, restoring the company, then the order proceeds', async () => {
+  const { dir, manifest } = await newManifest();
+  const { bridge, unit4 } = unit4With({
+    opEnsureReport: [() => ({ ok: false, reason: 'activity_limit' }), () => ({ ok: true, tabName: '312 Råbalanse : TRA015' })],
+    opLogoutReturn: () => ({ ok: true, company: { code: '100', name: 'Knowit AS' }, tabs: [] }),
+    opSelectCompany: (args) => ({ ok: args.code === '312', changed: true, company: { code: '312', name: 'Knowit Experience Oslo AS' } }),
+    opScanOrders: scan(['18567']), opSetParams: goodParams('raw_balance'), opLagre: success('18574'),
+  });
+  const out = await outcomeOf(() => unit4.order(manifest, 'raw_balance'));
+  assert.equal(out.status, 'CONFIRMED');
+  assert.equal(bridge.count('opLogoutReturn'), 1);
+  assert.equal(bridge.count('opSelectCompany'), 1);
+  assert.equal(bridge.count('opEnsureReport'), 2);
+  await fs.rm(dir, { recursive: true });
+});
+
+test('activity limit that survives the reset stops before begin', async () => {
+  const { dir, manifest } = await newManifest();
+  const { bridge, unit4 } = unit4With({
+    opEnsureReport: () => ({ ok: false, reason: 'activity_limit' }),
+    opLogoutReturn: () => ({ ok: true, company: { code: '312', name: 'Knowit Experience Oslo AS' }, tabs: [] }),
+  });
+  const out = await outcomeOf(() => unit4.order(manifest, 'raw_balance'));
+  assert.equal(out.status, 'ACTIVITY_LIMIT');
+  assert.equal(bridge.count('opLogoutReturn'), 1);
+  assert.equal(bridge.count('opLagre'), 0);
+  assert.equal((await manifestShow(manifest)).records.raw_balance.state, 'PLANNED');
+  await fs.rm(dir, { recursive: true });
+});

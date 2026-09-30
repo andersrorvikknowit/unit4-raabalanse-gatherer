@@ -133,8 +133,12 @@ every other status as a stop:
   changes a parameter; that is normal.
 - `NEEDS_USER`: tell the user what the tool's `message` or `reason` asks for,
   then retry the same call once they confirm.
-- `ACTIVITY_LIMIT`: Unit4 allows 10 open activities. Ask the user to close
-  unused Unit4 tabs, or log out and back in.
+- `ACTIVITY_LIMIT`: Unit4 allows 10 open activities. `unit4_order` and
+  `unit4_download_zip` already reset once automatically when opening a report
+  hits the limit. Otherwise call `unit4_reset_activities` with the company
+  (user menu > log out > **Return to the application**, never **Yes**), then
+  retry the same call. If it still fails, ask the user to close unused Unit4
+  tabs, or log out and back in.
 - `STILL_PENDING`: report the exact statuses and ask whether to keep waiting.
 - `UNKNOWN`, `BLOCKED`, `FAILED`, `NOT_VERIFIED`, `NO_UNIQUE_ZIP` or `ERROR`:
   follow this skill's stop and handoff rules for that stage.
